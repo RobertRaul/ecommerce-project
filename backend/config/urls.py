@@ -8,6 +8,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from products.views import CategoryViewSet, BrandViewSet, ProductViewSet, ReviewViewSet
 from orders.views import CartViewSet, OrderViewSet, shipping_zones_list, calculate_shipping
+from users.views import LoginView
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -25,7 +26,7 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     
     # Authentication
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/login/', LoginView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/', include('users.urls')),
     

@@ -29,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone', 'address', 'city', 'department', 'postal_code',
             'email_verified', 'created_at', 'profile'
         ]
-        read_only_fields = ['id', 'email_verified', 'created_at']
+        read_only_fields = ['id', 'email_verified', 'created_at','email']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -96,6 +96,8 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'first_name', 'last_name', 'phone',
+            'id',
+            'email','first_name', 'last_name', 'phone',
             'address', 'city', 'department', 'postal_code'
         ]
+        read_only_fields = ['id','email']

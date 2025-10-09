@@ -8,6 +8,9 @@ from .serializers import (
     UserSerializer, RegisterSerializer,
     ChangePasswordSerializer, UpdateProfileSerializer
 )
+from rest_framework.views import APIView
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.exceptions import TokenError
 
 User = get_user_model()
 
@@ -86,12 +89,57 @@ def logout_view(request):
     """
     try:
         refresh_token = request.data.get('refresh')
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-        return Response({
-            'message': 'Sesión cerrada exitosamente'
-        }, status=status.HTTP_200_OK)
+
+        if not refresh_token:
+            return Response({
+                'message': 'Sesión cerrada (sin token para invalidar)'
+            }, status=status.HTTP_200_OK)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            return Response({
+                'message': 'Sesión cerrada exitosamente'
+            }, status=status.HTTP_200_OK)
+
+        except TokenError:
+            # Token ya inválido, expirado o en blacklist
+            return Response({
+                'message': 'Sesión cerrada (token ya era inválido)'
+            }, status=status.HTTP_200_OK)
+
     except Exception as e:
+        # Cualquier otro error - no fallar el logout
         return Response({
-            'error': 'Token inválido'
-        }, status=status.HTTP_400_BAD_REQUEST)
+            'message': f'Sesión cerrada'
+        }, status=status.HTTP_200_OK)
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response({
+                'detail': 'Email y contraseña son requeridos'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Autenticar usuario
+        user = authenticate(username=email, password=password)
+
+        if user is None:
+            return Response({
+                'detail': 'Credenciales inválidas'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Generar tokens
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_200_OK)

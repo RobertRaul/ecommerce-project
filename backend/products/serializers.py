@@ -2,6 +2,19 @@ from rest_framework import serializers
 from .models import Category, Brand, Product, ProductImage, ProductVariant, Review
 
 
+# Serializers ligeros para autocomplete
+class CategoryAutocompleteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug']
+
+
+class BrandAutocompleteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ['id', 'name', 'slug']
+
+
 class CategorySerializer(serializers.ModelSerializer):
     subcategories = serializers.SerializerMethodField()
     product_count = serializers.SerializerMethodField()

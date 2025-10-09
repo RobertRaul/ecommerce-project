@@ -15,12 +15,35 @@ from .serializers import (
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para categorías
-    GET /api/categories/ - Lista todas las categorías
+    GET /api/categories/ - Lista todas las categorías (paginado)
     GET /api/categories/{id}/ - Detalle de una categoría
+    GET /api/categories/autocomplete/?search=term - Para autocomplete (sin paginar)
     """
     queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     lookup_field = 'slug'
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'order']
+    ordering = ['order', 'name']
+
+    @action(detail=False, methods=['get'])
+    def autocomplete(self, request):
+        """Endpoint para autocomplete sin paginación"""
+        search = request.query_params.get('search', '')
+        queryset = self.get_queryset()
+
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | Q(description__icontains=search)
+            )
+
+        # Limitar a 20 resultados para autocomplete
+        queryset = queryset[:20]
+
+        # Serializar solo id y name para optimizar
+        data = [{'id': cat.id, 'name': cat.name, 'slug': cat.slug} for cat in queryset]
+        return Response(data)
 
     @action(detail=True, methods=['get'])
     def products(self, request, slug=None):
@@ -42,20 +65,42 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 class BrandViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para marcas
-    GET /api/brands/ - Lista todas las marcas
+    GET /api/brands/ - Lista todas las marcas (paginado)
     GET /api/brands/{id}/ - Detalle de una marca
+    GET /api/brands/autocomplete/?search=term - Para autocomplete (sin paginar)
     """
     queryset = Brand.objects.filter(is_active=True)
     serializer_class = BrandSerializer
     lookup_field = 'slug'
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name']
+    ordering = ['name']
+
+    @action(detail=False, methods=['get'])
+    def autocomplete(self, request):
+        """Endpoint para autocomplete sin paginación"""
+        search = request.query_params.get('search', '')
+        queryset = self.get_queryset()
+
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+
+        # Limitar a 20 resultados para autocomplete
+        queryset = queryset[:20]
+
+        # Serializar solo id y name para optimizar
+        data = [{'id': brand.id, 'name': brand.name, 'slug': brand.slug} for brand in queryset]
+        return Response(data)
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint para productos
-    GET /api/products/ - Lista todos los productos
+    GET /api/products/ - Lista todos los productos (paginado)
     GET /api/products/{slug}/ - Detalle de un producto
     GET /api/products/featured/ - Productos destacados
+    GET /api/products/on_sale/ - Productos en oferta
     GET /api/products/search/?q=query - Búsqueda de productos
     """
     queryset = Product.objects.filter(is_active=True)
@@ -63,7 +108,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'brand', 'is_featured']
     search_fields = ['name', 'description', 'sku']
-    ordering_fields = ['price', 'created_at', 'sales_count']
+    ordering_fields = ['price', 'created_at', 'sales_count', 'name']
     ordering = ['-created_at']
 
     def get_serializer_class(self):
