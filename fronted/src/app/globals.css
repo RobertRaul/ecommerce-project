@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/* Configuración de Tailwind v4 */
+@theme {
+    --font-family-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Estilos personalizados para react-select */
+.react-select-container {
+    font-size: 0.875rem;
+}
+
+.react-select__control {
+    min-height: 38px !important;
+}
+
+.react-select__indicator {
+    padding: 6px !important;
+}
+
+.react-select__menu {
+    z-index: 100 !important;
+}
+
+/* Inputs en modo claro */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+textarea,
+select {
+    color: #111827;
+    background-color: white;
+    border-color: #d1d5db;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"])::placeholder,
+textarea::placeholder {
+    color: #6b7280;
+}
+
+/* Inputs en modo oscuro */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.dark textarea,
+.dark select {
+    color: #f9fafb;
+    background-color: #374151;
+    border-color: #4b5563;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"])::placeholder,
+.dark textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* Focus states */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: #9333ea;
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.dark textarea:focus,
+.dark select:focus {
+    border-color: #a855f7;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+/* Disabled states */
+input:disabled,
+textarea:disabled,
+select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+    background-color: #1f2937;
+    color: #6b7280;
+}
+
+/* Transiciones suaves para el cambio de tema */
+* {
+    transition-property: background-color, border-color, color;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Excluir transiciones de elementos que no las necesitan */
+input[type="checkbox"],
+input[type="radio"],
+button,
+a {
+    transition-property: none;
+}
+
+/* Restaurar transiciones para interacciones */
+button,
+a {
+    transition-property: background-color, border-color, color, transform, box-shadow;
+    transition-duration: 150ms;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Fix para autocomplete de navegadores en dark mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill:focus,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:hover,
+.dark select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f9fafb;
+    -webkit-box-shadow: 0 0 0px 1000px #374151 inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #111827;
+    -webkit-box-shadow: 0 0 0px 1000px white inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
