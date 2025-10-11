@@ -113,7 +113,7 @@ export default function CheckoutPage() {
         setLoading(true);
 
         try {
-            const response = await api.post('/orders/create/', formData);
+            const response = await api.post('/orders/create_order/', formData);
 
             toast.success('¡Orden creada exitosamente!');
             router.push(`/ordenes/${response.data.order.order_number}`);

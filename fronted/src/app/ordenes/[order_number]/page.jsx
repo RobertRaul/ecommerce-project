@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
     Package, MapPin, CreditCard, Truck, CheckCircle,
-    Clock, Download, Upload, ArrowLeft
+    Clock, Upload, ArrowLeft
 } from 'lucide-react';
 import Layout from '@/components/Layout';
 import useAuthStore from '@/store/authStore';
@@ -17,7 +17,7 @@ export default function OrderDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { order_number } = params;
-    const { isAuthenticated } = useAuthStore();
+    const { isAuthenticated, isLoading } = useAuthStore();
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -25,12 +25,15 @@ export default function OrderDetailPage() {
     const [paymentProof, setPaymentProof] = useState(null);
 
     useEffect(() => {
-        if (!isAuthenticated) {
+        if (!isLoading && !isAuthenticated) {
             router.push('/login?redirect=/ordenes');
             return;
         }
-        fetchOrder();
-    }, [isAuthenticated, order_number]);
+
+        if (isAuthenticated && order_number) {
+            fetchOrder();
+        }
+    }, [isAuthenticated, isLoading, order_number]);
 
     const fetchOrder = async () => {
         try {
@@ -38,7 +41,11 @@ export default function OrderDetailPage() {
             setOrder(response.data);
         } catch (error) {
             console.error('Error al cargar orden:', error);
-            toast.error('Error al cargar la orden');
+            if (error.response?.status === 404) {
+                toast.error('Orden no encontrada');
+            } else {
+                toast.error('Error al cargar la orden');
+            }
         } finally {
             setLoading(false);
         }
@@ -50,12 +57,25 @@ export default function OrderDetailPage() {
             return;
         }
 
+        // Validar tamaño del archivo (máximo 5MB)
+        if (paymentProof.size > 5 * 1024 * 1024) {
+            toast.error('El archivo no debe superar los 5MB');
+            return;
+        }
+
+        // Validar tipo de archivo
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(paymentProof.type)) {
+            toast.error('Solo se permiten imágenes JPG, PNG o WebP');
+            return;
+        }
+
         setUploadingProof(true);
         const formData = new FormData();
         formData.append('payment_proof', paymentProof);
 
         try {
-            await api.post(`/orders/${order_number}/upload-payment/`, formData, {
+            await api.post(`/orders/${order_number}/upload_payment_proof/`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -64,7 +84,8 @@ export default function OrderDetailPage() {
             fetchOrder();
             setPaymentProof(null);
         } catch (error) {
-            toast.error('Error al subir comprobante');
+            console.error('Error al subir comprobante:', error);
+            toast.error(error.response?.data?.error || 'Error al subir comprobante');
         } finally {
             setUploadingProof(false);
         }
@@ -88,7 +109,7 @@ export default function OrderDetailPage() {
         }));
     };
 
-    if (loading) {
+    if (isLoading || loading) {
         return (
             <Layout>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -108,11 +129,19 @@ export default function OrderDetailPage() {
         return (
             <Layout>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+                    <Package className="h-24 w-24 text-gray-400 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">
                         Orden no encontrada
                     </h2>
-                    <Link href="/ordenes" className="text-purple-600 hover:text-purple-700">
-                        Volver a mis órdenes
+                    <p className="text-gray-600 mb-6">
+                        La orden #{order_number} no existe o no tienes acceso a ella.
+                    </p>
+                    <Link
+                        href="/ordenes"
+                        className="inline-flex items-center space-x-2 text-purple-600 hover:text-purple-700 font-semibold"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                        <span>Volver a mis órdenes</span>
                     </Link>
                 </div>
             </Layout>
@@ -151,9 +180,9 @@ export default function OrderDetailPage() {
                             </p>
                         </div>
                         <div className="mt-4 md:mt-0">
-              <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
-                {order.status_display}
-              </span>
+                            <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
+                                {order.status_display}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -175,7 +204,7 @@ export default function OrderDetailPage() {
 
                         {/* Steps */}
                         <div className="relative grid grid-cols-6 gap-2">
-                            {steps.map((step, index) => {
+                            {steps.map((step) => {
                                 const Icon = step.icon;
                                 return (
                                     <div key={step.key} className="flex flex-col items-center">
@@ -193,8 +222,8 @@ export default function OrderDetailPage() {
                                                 step.completed ? 'text-gray-900 font-medium' : 'text-gray-500'
                                             }`}
                                         >
-                      {step.label}
-                    </span>
+                                            {step.label}
+                                        </span>
                                     </div>
                                 );
                             })}
@@ -214,32 +243,37 @@ export default function OrderDetailPage() {
                                         Sube tu comprobante de pago
                                     </h3>
                                     <p className="text-yellow-800 mb-4">
-                                        Para verificar tu pago, sube una captura de pantalla o foto de tu comprobante.
+                                        Para verificar tu pago, sube una captura de pantalla o foto de tu comprobante (máx. 5MB).
                                     </p>
-                                    <div className="flex items-center space-x-4">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
                                         <input
                                             type="file"
-                                            accept="image/*"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
                                             onChange={(e) => setPaymentProof(e.target.files[0])}
-                                            className="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+                                            className="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
                                         />
                                         <button
                                             onClick={handleUploadProof}
                                             disabled={!paymentProof || uploadingProof}
-                                            className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
                                         >
-                                            {uploadingProof ? 'Subiendo...' : 'Subir'}
+                                            {uploadingProof ? 'Subiendo...' : 'Subir Comprobante'}
                                         </button>
                                     </div>
+                                    {paymentProof && (
+                                        <p className="text-sm text-gray-600 mt-2">
+                                            Archivo seleccionado: {paymentProof.name}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     )}
 
+                {/* Resto del código igual... */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column */}
+                    {/* Products */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Products */}
                         <div className="bg-white rounded-lg shadow-md p-6">
                             <h2 className="text-xl font-semibold text-gray-900 mb-4">
                                 Productos ({order.items.length})
@@ -307,7 +341,7 @@ export default function OrderDetailPage() {
                         </div>
                     </div>
 
-                    {/* Right Column - Summary */}
+                    {/* Summary */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-lg shadow-md p-6 sticky top-20">
                             <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -322,8 +356,8 @@ export default function OrderDetailPage() {
                                 <div className="flex justify-between text-gray-700">
                                     <span>Envío</span>
                                     <span>
-                    {order.shipping_cost === '0.00' ? 'GRATIS' : `S/ ${order.shipping_cost}`}
-                  </span>
+                                        {order.shipping_cost === '0.00' ? 'GRATIS' : `S/ ${order.shipping_cost}`}
+                                    </span>
                                 </div>
                                 {parseFloat(order.discount) > 0 && (
                                     <div className="flex justify-between text-green-600">

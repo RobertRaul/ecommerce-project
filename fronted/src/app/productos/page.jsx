@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import Select from 'react-select';
+import AsyncSelect from 'react-select/async'; // ← Cambiar a AsyncSelect
 import { ShoppingCart, Star, Filter, X } from 'lucide-react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api';
@@ -32,6 +32,8 @@ export default function ProductsPage() {
     // Para react-select
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [selectedBrand, setSelectedBrand] = useState(null);
+    const [categoryOptions, setCategoryOptions] = useState([]);
+    const [brandOptions, setBrandOptions] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -48,14 +50,35 @@ export default function ProductsPage() {
                 api.get('/brands/')
             ]);
 
+
             // Manejar respuesta paginada
             const categoriesData = categoriesRes.data.results || categoriesRes.data;
             const brandsData = brandsRes.data.results || brandsRes.data;
 
-            setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-            setBrands(Array.isArray(brandsData) ? brandsData : []);
+            const categoriesArray = Array.isArray(categoriesData) ? categoriesData : [];
+            const brandsArray = Array.isArray(brandsData) ? brandsData : [];
+
+            setCategories(categoriesArray);
+            setBrands(brandsArray);
+
+            // Crear opciones para los selects
+            const catOptions = categoriesArray.map(cat => ({
+                value: cat.id,
+                label: cat.name
+            }));
+
+            const brandOpts = brandsArray.map(brand => ({
+                value: brand.id,
+                label: brand.name
+            }));
+
+            setCategoryOptions(catOptions);
+            setBrandOptions(brandOpts);
+
+
         } catch (error) {
-            console.error('Error al cargar filtros:', error);
+            console.error('❌ Error al cargar filtros:', error);
+            console.error('❌ Detalles del error:', error.response?.data);
         }
     };
 
@@ -84,6 +107,10 @@ export default function ProductsPage() {
 
     // Cargar opciones de categorías para autocomplete
     const loadCategoryOptions = async (inputValue) => {
+        if (!inputValue) {
+            return categoryOptions;
+        }
+
         try {
             const response = await api.get(`/categories/autocomplete/?search=${inputValue}`);
             return response.data.map(cat => ({
@@ -92,12 +119,18 @@ export default function ProductsPage() {
             }));
         } catch (error) {
             console.error('Error al cargar categorías:', error);
-            return [];
+            return categoryOptions.filter(opt =>
+                opt.label.toLowerCase().includes(inputValue.toLowerCase())
+            );
         }
     };
 
     // Cargar opciones de marcas para autocomplete
     const loadBrandOptions = async (inputValue) => {
+        if (!inputValue) {
+            return brandOptions;
+        }
+
         try {
             const response = await api.get(`/brands/autocomplete/?search=${inputValue}`);
             return response.data.map(brand => ({
@@ -106,7 +139,9 @@ export default function ProductsPage() {
             }));
         } catch (error) {
             console.error('Error al cargar marcas:', error);
-            return [];
+            return brandOptions.filter(opt =>
+                opt.label.toLowerCase().includes(inputValue.toLowerCase())
+            );
         }
     };
 
@@ -214,20 +249,17 @@ export default function ProductsPage() {
                             />
                         </div>
 
-                        {/* Category Filter con Autocomplete */}
+                        {/* Category Filter */}
                         <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Categoría
                             </label>
-                            <Select
-                                instanceId={"category-select"}
+                            <AsyncSelect
+                                instanceId="category-select"
                                 value={selectedCategory}
                                 onChange={handleCategoryChange}
                                 loadOptions={loadCategoryOptions}
-                                defaultOptions={categories.slice(0, 20).map(cat => ({
-                                    value: cat.id,
-                                    label: cat.name
-                                }))}
+                                defaultOptions={categoryOptions}
                                 isClearable
                                 placeholder="Todas las categorías"
                                 noOptionsMessage={() => "No hay categorías"}
@@ -237,20 +269,17 @@ export default function ProductsPage() {
                             />
                         </div>
 
-                        {/* Brand Filter con Autocomplete */}
+                        {/* Brand Filter */}
                         <div className="mb-6">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Marca
                             </label>
-                            <Select
-                                instanceId={"brand-select"}
+                            <AsyncSelect
+                                instanceId="brand-select"
                                 value={selectedBrand}
                                 onChange={handleBrandChange}
                                 loadOptions={loadBrandOptions}
-                                defaultOptions={brands.slice(0, 20).map(brand => ({
-                                    value: brand.id,
-                                    label: brand.name
-                                }))}
+                                defaultOptions={brandOptions}
                                 isClearable
                                 placeholder="Todas las marcas"
                                 noOptionsMessage={() => "No hay marcas"}
@@ -302,7 +331,7 @@ export default function ProductsPage() {
                         </div>
                     </aside>
 
-                    {/* Products Grid */}
+                    {/* Products Grid - resto del código igual */}
                     <div className="flex-1">
                         {loading ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
