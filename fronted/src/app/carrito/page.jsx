@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, ShoppingBag, AlertTriangle, X } from 'lucide-react';
 import Layout from '@/components/Layout';
 import useCartStore from '@/store/cartStore';
 import useAuthStore from '@/store/authStore';
@@ -15,6 +15,9 @@ export default function CartPage() {
     const { isAuthenticated } = useAuthStore();
     const { cart, fetchCart, updateQuantity, removeItem, clearCart, isLoading } = useCartStore();
     const [updating, setUpdating] = useState({});
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showClearModal, setShowClearModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -31,15 +34,25 @@ export default function CartPage() {
     };
 
     const handleRemoveItem = async (itemId) => {
-        if (window.confirm('¿Estás seguro de eliminar este producto del carrito?')) {
-            await removeItem(itemId);
+        setItemToDelete(itemId);
+        setShowDeleteModal(true);
+    };
+
+    const confirmRemoveItem = async () => {
+        if (itemToDelete) {
+            await removeItem(itemToDelete);
+            setShowDeleteModal(false);
+            setItemToDelete(null);
         }
     };
 
-    const handleClearCart = async () => {
-        if (window.confirm('¿Estás seguro de vaciar todo el carrito?')) {
-            await clearCart();
-        }
+    const handleClearCart = () => {
+        setShowClearModal(true);
+    };
+
+    const confirmClearCart = async () => {
+        await clearCart();
+        setShowClearModal(false);
     };
 
     const handleCheckout = () => {
@@ -199,17 +212,17 @@ export default function CartPage() {
                                             <div className="mt-2">
                                                 {item.product_detail.is_on_sale ? (
                                                     <div className="flex items-center space-x-2">
-                            <span className="text-lg font-bold text-purple-600">
-                              S/ {item.price}
-                            </span>
+                                                        <span className="text-lg font-bold text-purple-600">
+                                                            S/ {item.price}
+                                                        </span>
                                                         <span className="text-sm text-gray-500 line-through">
-                              S/ {item.product_detail.compare_price}
-                            </span>
+                                                            S/ {item.product_detail.compare_price}
+                                                        </span>
                                                     </div>
                                                 ) : (
                                                     <span className="text-lg font-bold text-gray-900">
-                            S/ {item.price}
-                          </span>
+                                                        S/ {item.price}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
@@ -225,8 +238,8 @@ export default function CartPage() {
                                                     <Minus className="h-4 w-4" />
                                                 </button>
                                                 <span className="w-12 text-center font-semibold">
-                          {item.quantity}
-                        </span>
+                                                    {item.quantity}
+                                                </span>
                                                 <button
                                                     onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                                                     disabled={updating[item.id]}
@@ -239,8 +252,8 @@ export default function CartPage() {
                                             <div className="flex items-center space-x-4">
                                                 {/* Subtotal */}
                                                 <span className="text-lg font-bold text-gray-900">
-                          S/ {item.total_price}
-                        </span>
+                                                    S/ {item.total_price}
+                                                </span>
 
                                                 {/* Remove Button */}
                                                 <button
@@ -274,8 +287,8 @@ export default function CartPage() {
                                 <div className="flex justify-between text-gray-700">
                                     <span>Envío</span>
                                     <span className="text-sm text-gray-600">
-                    Calculado en el checkout
-                  </span>
+                                        Calculado en el checkout
+                                    </span>
                                 </div>
 
                                 <div className="border-t border-gray-200 pt-4">
@@ -356,6 +369,97 @@ export default function CartPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* Modal para eliminar item */}
+            {showDeleteModal && (
+                <div
+                    className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => {
+                        setShowDeleteModal(false);
+                        setItemToDelete(null);
+                    }}
+                >
+                    <div
+                        className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start space-x-4 mb-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <AlertTriangle className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                    Eliminar producto
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    ¿Estás seguro de que deseas eliminar este producto del carrito?
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex space-x-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setItemToDelete(null);
+                                }}
+                                className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmRemoveItem}
+                                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 shadow-lg hover:shadow-xl transition-all"
+                            >
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal para vaciar carrito */}
+            {showClearModal && (
+                <div
+                    className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                    onClick={() => setShowClearModal(false)}
+                >
+                    <div
+                        className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl transform transition-all"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start space-x-4 mb-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <Trash2 className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                    Vaciar carrito
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    ¿Estás seguro de que deseas eliminar todos los productos del carrito? Esta acción no se puede deshacer.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex space-x-3 mt-6">
+                            <button
+                                onClick={() => setShowClearModal(false)}
+                                className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmClearCart}
+                                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 shadow-lg hover:shadow-xl transition-all"
+                            >
+                                Vaciar Carrito
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </Layout>
     );
 }
