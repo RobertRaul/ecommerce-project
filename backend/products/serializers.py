@@ -87,7 +87,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             'category', 'category_name', 'brand', 'brand_name',
             'price', 'compare_price', 'stock', 'primary_image',
             'is_on_sale', 'discount_percentage', 'is_featured',
-            'average_rating', 'review_count'
+            'is_active', 'average_rating', 'review_count'
         ]
 
     def get_primary_image(self, obj):
@@ -129,7 +129,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'is_active', 'is_featured', 'is_on_sale', 'discount_percentage',
             'is_low_stock', 'is_out_of_stock',
             'images', 'variants', 'reviews', 'average_rating', 'review_count',
-            'related_products', 'views', 'sales_count', 'created_at'
+            'related_products', 'views', 'sales_count', 'created_at', 'updated_at'
         ]
 
     def get_average_rating(self, obj):
@@ -153,3 +153,66 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             many=True,
             context=self.context
         ).data
+
+
+class ProductWriteSerializer(serializers.ModelSerializer):
+    """Serializer para crear y actualizar productos"""
+    
+    class Meta:
+        model = Product
+        fields = [
+            'name', 'description', 'short_description',
+            'category', 'brand', 'price', 'compare_price', 'cost',
+            'sku', 'stock', 'low_stock_threshold',
+            'track_inventory', 'weight', 'length', 'width', 'height',
+            'is_active', 'is_featured',
+            'meta_title', 'meta_description'
+        ]
+
+    def create(self, validated_data):
+        # Obtener imágenes del request
+        request = self.context.get('request')
+        images = request.FILES.getlist('images') if request else []
+        
+        # Crear el producto
+        product = Product.objects.create(**validated_data)
+        
+        # Agregar imágenes
+        for index, image in enumerate(images):
+            ProductImage.objects.create(
+                product=product,
+                image=image,
+                is_primary=(index == 0),
+                order=index
+            )
+        
+        return product
+
+    def update(self, instance, validated_data):
+        # Obtener imágenes del request
+        request = self.context.get('request')
+        images = request.FILES.getlist('images') if request else []
+        
+        # Actualizar campos del producto
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Si hay nuevas imágenes, agregarlas
+        if images:
+            # Obtener el orden máximo actual
+            max_order = instance.images.count()
+            
+            for index, image in enumerate(images):
+                ProductImage.objects.create(
+                    product=instance,
+                    image=image,
+                    is_primary=(max_order == 0 and index == 0),
+                    order=max_order + index
+                )
+        
+        return instance
+
+    def to_representation(self, instance):
+        """Retornar el producto con el serializer de detalle después de crear/actualizar"""
+        return ProductDetailSerializer(instance, context=self.context).data

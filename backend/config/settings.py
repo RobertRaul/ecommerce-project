@@ -30,6 +30,10 @@ INSTALLED_APPS = [
     'products',
     'users',
     'orders',
+    'admin_api',
+
+    #MCP
+    'mcp_server',
 ]
 
 MIDDLEWARE = [

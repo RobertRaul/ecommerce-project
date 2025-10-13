@@ -51,6 +51,12 @@ urlpatterns = [
     # Shipping
     path('api/shipping-zones/', shipping_zones_list, name='shipping-zones'),
     path('api/calculate-shipping/', calculate_shipping, name='calculate-shipping'),
+
+    # tus urls...
+    path("mcp/", include('mcp_server.urls')),
+
+    # Admin API
+    path('api/admin/', include('admin_api.urls')),
 ]
 
 # Serve media files in development

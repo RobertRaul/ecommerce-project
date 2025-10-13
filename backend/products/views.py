@@ -1,27 +1,43 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Avg
-from .models import Category, Brand, Product, Review
+from .models import Category, Brand, Product, ProductImage, Review
 from .serializers import (
     CategorySerializer, BrandSerializer,
     ProductListSerializer, ProductDetailSerializer,
-    ReviewSerializer
+    ProductWriteSerializer, ReviewSerializer
 )
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+class IsAdminOrReadOnly(IsAuthenticatedOrReadOnly):
+    """
+    Permiso personalizado: Solo admins pueden escribir, todos pueden leer
+    """
+    def has_permission(self, request, view):
+        # Permitir GET, HEAD, OPTIONS sin autenticación
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True
+        # Para POST, PUT, PATCH, DELETE: requiere staff
+        return request.user and request.user.is_authenticated and request.user.is_staff
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint para categorías
     GET /api/categories/ - Lista todas las categorías (paginado)
     GET /api/categories/{id}/ - Detalle de una categoría
     GET /api/categories/autocomplete/?search=term - Para autocomplete (sin paginar)
+    POST /api/categories/ - Crear categoría (solo admin)
+    PUT/PATCH /api/categories/{id}/ - Actualizar categoría (solo admin)
+    DELETE /api/categories/{id}/ - Eliminar categoría (solo admin)
     """
     queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     lookup_field = 'slug'
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'order']
@@ -62,16 +78,20 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class BrandViewSet(viewsets.ReadOnlyModelViewSet):
+class BrandViewSet(viewsets.ModelViewSet):
     """
     API endpoint para marcas
     GET /api/brands/ - Lista todas las marcas (paginado)
     GET /api/brands/{id}/ - Detalle de una marca
     GET /api/brands/autocomplete/?search=term - Para autocomplete (sin paginar)
+    POST /api/brands/ - Crear marca (solo admin)
+    PUT/PATCH /api/brands/{id}/ - Actualizar marca (solo admin)
+    DELETE /api/brands/{id}/ - Eliminar marca (solo admin)
     """
     queryset = Brand.objects.filter(is_active=True)
     serializer_class = BrandSerializer
     lookup_field = 'slug'
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name']
@@ -94,52 +114,101 @@ class BrandViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(data)
 
 
-class ProductViewSet(viewsets.ReadOnlyModelViewSet):
+class ProductViewSet(viewsets.ModelViewSet):
     """
-    API endpoint para productos
-    GET /api/products/ - Lista todos los productos (paginado)
-    GET /api/products/{slug}/ - Detalle de un producto
-    GET /api/products/featured/ - Productos destacados
-    GET /api/products/on_sale/ - Productos en oferta
-    GET /api/products/search/?q=query - Búsqueda de productos
+    API endpoint para productos con CRUD completo
+    GET /api/products/ - Lista todos los productos
+    POST /api/products/ - Crear producto (solo admin)
+    GET /api/products/{id}/ - Detalle de un producto
+    PUT/PATCH /api/products/{id}/ - Actualizar producto (solo admin)
+    DELETE /api/products/{id}/ - Eliminar producto (solo admin)
     """
-    queryset = Product.objects.filter(is_active=True)
+    queryset = Product.objects.all()
     lookup_field = 'slug'
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'brand', 'is_featured']
+    filterset_fields = ['category', 'brand', 'is_featured', 'is_active']
     search_fields = ['name', 'description', 'sku']
     ordering_fields = ['price', 'created_at', 'sales_count', 'name']
     ordering = ['-created_at']
 
+    def get_queryset(self):
+        """
+        Mostrar solo productos activos para usuarios normales,
+        mostrar todos para admins
+        """
+        queryset = Product.objects.all()
+        
+        # Si no es admin, solo mostrar activos
+        if not (self.request.user and self.request.user.is_staff):
+            queryset = queryset.filter(is_active=True)
+        
+        return queryset
+
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        """
+        Usar serializer diferente para lectura y escritura
+        """
+        if self.action in ['create', 'update', 'partial_update']:
+            return ProductWriteSerializer
+        elif self.action == 'retrieve':
             return ProductDetailSerializer
         return ProductListSerializer
 
     def retrieve(self, request, *args, **kwargs):
         """Incrementar vistas al ver detalle del producto"""
         instance = self.get_object()
-        instance.views += 1
-        instance.save(update_fields=['views'])
+        
+        # Solo incrementar vistas si no es admin
+        if not (request.user and request.user.is_staff):
+            instance.views += 1
+            instance.save(update_fields=['views'])
+        
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        """Crear producto"""
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        """Actualizar producto"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        """Crear producto con el usuario actual"""
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Actualizar producto"""
+        serializer.save()
 
     @action(detail=False, methods=['get'])
     def featured(self, request):
         """Obtener productos destacados"""
-        products = self.queryset.filter(is_featured=True)[:8]
-        serializer = self.get_serializer(products, many=True)
+        products = self.get_queryset().filter(is_featured=True, is_active=True)[:8]
+        serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
     def on_sale(self, request):
         """Obtener productos en oferta"""
-        products = self.queryset.filter(
+        products = self.get_queryset().filter(
+            is_active=True,
             compare_price__isnull=False
         ).exclude(
             compare_price__lte=0
         )[:12]
-        serializer = self.get_serializer(products, many=True)
+        serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
@@ -151,7 +220,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         category_id = request.query_params.get('category')
         brand_id = request.query_params.get('brand')
 
-        products = self.queryset
+        products = self.get_queryset()
 
         if query:
             products = products.filter(
@@ -175,10 +244,10 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         # Paginar resultados
         page = self.paginate_queryset(products)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            serializer = ProductListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(products, many=True)
+        serializer = ProductListSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
 
 
