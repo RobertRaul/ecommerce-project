@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -15,11 +15,6 @@ from .serializers import (
 class CartViewSet(viewsets.ViewSet):
     """
     API endpoint para el carrito de compras
-    GET /api/cart/ - Obtener carrito actual
-    POST /api/cart/add/ - Agregar producto al carrito
-    PUT /api/cart/update/{item_id}/ - Actualizar cantidad
-    DELETE /api/cart/remove/{item_id}/ - Eliminar item
-    DELETE /api/cart/clear/ - Vaciar carrito
     """
     permission_classes = [IsAuthenticated]
 
@@ -51,7 +46,6 @@ class CartViewSet(viewsets.ViewSet):
 
         cart = self.get_cart(request.user)
 
-        # Verificar si el item ya existe en el carrito
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
@@ -60,7 +54,6 @@ class CartViewSet(viewsets.ViewSet):
         )
 
         if not created:
-            # Actualizar cantidad si ya existe
             cart_item.quantity += quantity
             cart_item.save()
 
@@ -82,7 +75,6 @@ class CartViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Verificar stock
         if cart_item.variant:
             if cart_item.variant.stock < int(quantity):
                 return Response(
@@ -128,19 +120,30 @@ class CartViewSet(viewsets.ViewSet):
         })
 
 
-class OrderViewSet(viewsets.ReadOnlyModelViewSet):
+class OrderViewSet(viewsets.ModelViewSet):
     """
     API endpoint para órdenes
-    GET /api/orders/ - Lista de órdenes del usuario
+    GET /api/orders/ - Lista de órdenes (del usuario o todas si es admin)
     GET /api/orders/{order_number}/ - Detalle de una orden
     POST /api/orders/create/ - Crear nueva orden
+    PATCH /api/orders/{order_number}/ - Actualizar orden (solo admin)
     """
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'order_number'
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).order_by('-created_at')
+        """Los admins ven todas, los usuarios solo las suyas"""
+        user = self.request.user
+        if user.is_staff:
+            return Order.objects.all().order_by('-created_at')
+        return Order.objects.filter(user=user).order_by('-created_at')
+
+    def get_permissions(self):
+        """Solo admins pueden actualizar/eliminar"""
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
 
     @action(detail=False, methods=['post'])
     @transaction.atomic
@@ -154,7 +157,6 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
 
         user = request.user
 
-        # Obtener carrito
         try:
             cart = Cart.objects.get(user=user)
         except Cart.DoesNotExist:
@@ -169,7 +171,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Verificar stock antes de crear la orden
+        # Verificar stock
         for item in cart.items.all():
             stock = item.variant.stock if item.variant else item.product.stock
             if stock < item.quantity:
@@ -178,10 +180,9 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # Calcular costos
         subtotal = cart.subtotal
 
-        # Calcular costo de envío
+        # Calcular envío
         shipping_department = serializer.validated_data['shipping_department']
         shipping_zone = ShippingZone.objects.filter(
             departments__contains=[shipping_department],
@@ -214,7 +215,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
             status='payment_pending',
         )
 
-        # Crear items de la orden
+        # Crear items
         for cart_item in cart.items.all():
             OrderItem.objects.create(
                 order=order,
@@ -232,7 +233,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
                 cart_item.product.stock -= cart_item.quantity
                 cart_item.product.save()
 
-            # Incrementar contador de ventas
+            # Incrementar ventas
             cart_item.product.sales_count += cart_item.quantity
             cart_item.product.save()
 
@@ -275,10 +276,7 @@ class OrderViewSet(viewsets.ReadOnlyModelViewSet):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def shipping_zones_list(request):
-    """
-    GET /api/shipping-zones/
-    Listar zonas de envío disponibles
-    """
+    """Listar zonas de envío disponibles"""
     zones = ShippingZone.objects.filter(is_active=True)
     serializer = ShippingZoneSerializer(zones, many=True)
     return Response(serializer.data)
@@ -287,11 +285,7 @@ def shipping_zones_list(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def calculate_shipping(request):
-    """
-    POST /api/calculate-shipping/
-    Calcular costo de envío para un departamento
-    Body: { "department": "Lima", "subtotal": 150.00 }
-    """
+    """Calcular costo de envío"""
     department = request.data.get('department')
     subtotal = request.data.get('subtotal', 0)
 

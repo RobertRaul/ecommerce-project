@@ -1,9 +1,10 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from .serializers import (
     UserSerializer, RegisterSerializer,
     ChangePasswordSerializer, UpdateProfileSerializer
@@ -143,3 +144,27 @@ class LoginView(APIView):
             'refresh': str(refresh),
             'user': UserSerializer(user).data
         }, status=status.HTTP_200_OK)
+
+
+class UserListViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    GET /api/auth/users/ - Listar usuarios (solo admin)
+    GET /api/auth/users/{id}/ - Detalle de usuario (solo admin)
+    """
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search = self.request.query_params.get('search', None)
+        
+        if search:
+            queryset = queryset.filter(
+                Q(username__icontains=search) |
+                Q(email__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search)
+            )
+        
+        return queryset

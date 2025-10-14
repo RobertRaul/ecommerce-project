@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.exceptions import NotFound
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Avg
 from .models import Category, Brand, Product, ProductImage, Review
@@ -119,12 +120,11 @@ class ProductViewSet(viewsets.ModelViewSet):
     API endpoint para productos con CRUD completo
     GET /api/products/ - Lista todos los productos
     POST /api/products/ - Crear producto (solo admin)
-    GET /api/products/{id}/ - Detalle de un producto
+    GET /api/products/{id}/ - Detalle de un producto (acepta ID o slug)
     PUT/PATCH /api/products/{id}/ - Actualizar producto (solo admin)
     DELETE /api/products/{id}/ - Eliminar producto (solo admin)
     """
     queryset = Product.objects.all()
-    lookup_field = 'slug'
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'brand', 'is_featured', 'is_active']
@@ -144,6 +144,31 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(is_active=True)
         
         return queryset
+
+    def get_object(self):
+        """
+        Permite buscar producto por ID o slug
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field or 'pk'
+        lookup_value = self.kwargs.get(lookup_url_kwarg)
+
+        if not lookup_value:
+            raise NotFound('No se proporcionó un identificador válido')
+
+        # Intentar buscar por ID si es un número
+        if lookup_value.isdigit():
+            obj = queryset.filter(id=int(lookup_value)).first()
+        else:
+            # Si no es número, buscar por slug
+            obj = queryset.filter(slug=lookup_value).first()
+
+        if obj is None:
+            raise NotFound('Producto no encontrado')
+
+        # Verificar permisos
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         """
