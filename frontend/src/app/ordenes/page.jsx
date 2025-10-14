@@ -132,9 +132,14 @@ export default function OrdersPage() {
                                                     className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                                                         order.status
                                                     )}`}
-                                                >
-                          {order.status_display}
-                        </span>
+                                                >  
+                                                {order.status_display}
+                                                </span>
+                                                    {order.payment_status === 'verified' && (
+                                                    <span className="inline-flex px-3 py-1 text-xs rounded-full font-semibold bg-green-100 text-green-800">
+                                                        Pago Verificado ✓
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="mt-2 sm:mt-0 flex items-center space-x-4 text-sm text-gray-600">

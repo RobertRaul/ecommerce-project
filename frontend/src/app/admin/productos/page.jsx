@@ -46,7 +46,8 @@ export default function ProductosPage() {
             }
         } catch (error) {
             console.error('Error al cargar productos:', error);
-            toast.error('Error al cargar productos');
+            toast.error(error.response?.data?.detail || 'Error al cargar productos');
+            setProducts([]);
         } finally {
             setLoading(false);
         }

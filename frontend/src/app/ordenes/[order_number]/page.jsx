@@ -101,11 +101,19 @@ export default function OrderDetailPage() {
             { key: 'delivered', label: 'Entregado', icon: CheckCircle },
         ];
 
-        const currentIndex = steps.findIndex(step => step.key === order?.status);
+        // Determinar el estado actual considerando tanto order.status como payment_status
+        let currentKey = order?.status;
+        
+        // Si el pago ha sido verificado pero el status aún es payment_pending, mostrar payment_verified
+        if (order?.payment_status === 'verified' && order?.status === 'payment_pending') {
+            currentKey = 'payment_verified';
+        }
+
+        const currentIndex = steps.findIndex(step => step.key === currentKey);
         return steps.map((step, index) => ({
             ...step,
             completed: index <= currentIndex,
-            current: step.key === order?.status,
+            current: step.key === currentKey,
         }));
     };
 
@@ -180,9 +188,16 @@ export default function OrderDetailPage() {
                             </p>
                         </div>
                         <div className="mt-4 md:mt-0">
-                            <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
-                                {order.status_display}
-                            </span>
+                            <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-3">
+                                <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-purple-100 text-purple-800">
+                                    {order.status_display}
+                                </span>
+                                {order.payment_status === 'verified' && (
+                                    <span className="inline-block px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                                        Pago Verificado ✓
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -234,6 +249,7 @@ export default function OrderDetailPage() {
                 {/* Upload Payment Proof */}
                 {['yape', 'plin', 'transfer'].includes(order.payment_method) &&
                     order.status === 'payment_pending' &&
+                    order.payment_status !== 'verified' &&
                     !order.payment_proof && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
                             <div className="flex items-start space-x-3">
@@ -269,6 +285,24 @@ export default function OrderDetailPage() {
                             </div>
                         </div>
                     )}
+
+                {/* Payment Verified Notification */}
+                {order.payment_status === 'verified' && order.status === 'payment_pending' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+                        <div className="flex items-start space-x-3">
+                            <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0 mt-1" />
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-green-900 mb-2">
+                                    ¡Pago Verificado!
+                                </h3>
+                                <p className="text-green-800">
+                                    Hemos verificado tu pago exitosamente. Tu orden será procesada pronto.
+                                    Te notificaremos cuando tu pedido sea enviado.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Resto del código igual... */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useState, useEffect } from 'react';
 import { Settings, Store, Mail, Truck, CreditCard, Save, Plus, Edit, Trash2, X } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -12,6 +13,10 @@ export default function ConfiguracionPage() {
     const [shippingZones, setShippingZones] = useState([]);
     const [showShippingModal, setShowShippingModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showDeleteZoneModal, setShowDeleteZoneModal] = useState(false);
+    const [showDeletePaymentModal, setShowDeletePaymentModal] = useState(false);
+    const [zoneToDelete, setZoneToDelete] = useState(null);
+    const [paymentToDelete, setPaymentToDelete] = useState(null);
     const [editingZone, setEditingZone] = useState(null);
     const [paymentMethods, setPaymentMethods] = useState([
         { id: 1, name: 'Yape', enabled: true, description: 'Transferencias por Yape' },
@@ -32,10 +37,12 @@ export default function ConfiguracionPage() {
     const fetchShippingZones = async () => {
         try {
             const response = await api.get('/shipping-zones/');
-            setShippingZones(response.data);
+            const data = response.data.results || response.data;
+            setShippingZones(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error:', error);
             toast.error('Error al cargar zonas de envío');
+            setShippingZones([]);
         }
     };
 
@@ -56,15 +63,20 @@ export default function ConfiguracionPage() {
         }
     };
 
-    const handleDeleteZone = async (id) => {
-        if (confirm('¿Eliminar esta zona de envío?')) {
-            try {
-                await api.delete(`/shipping-zones/${id}/`);
-                toast.success('Zona eliminada');
-                fetchShippingZones();
-            } catch (error) {
-                toast.error('Error al eliminar zona');
-            }
+    const handleDeleteZone = (zone) => {
+        setZoneToDelete(zone);
+        setShowDeleteZoneModal(true);
+    };
+
+    const confirmDeleteZone = async () => {
+        try {
+            await api.delete(`/shipping-zones/${zoneToDelete.id}/`);
+            toast.success('Zona eliminada exitosamente');
+            fetchShippingZones();
+            setShowDeleteZoneModal(false);
+            setZoneToDelete(null);
+        } catch (error) {
+            toast.error('Error al eliminar zona');
         }
     };
 
@@ -105,11 +117,16 @@ export default function ConfiguracionPage() {
         toast.success('Método de pago agregado');
     };
 
-    const handleDeletePaymentMethod = (id) => {
-        if (confirm('¿Eliminar este método de pago?')) {
-            setPaymentMethods(prev => prev.filter(method => method.id !== id));
-            toast.success('Método eliminado');
-        }
+    const handleDeletePaymentMethod = (method) => {
+        setPaymentToDelete(method);
+        setShowDeletePaymentModal(true);
+    };
+
+    const confirmDeletePaymentMethod = () => {
+        setPaymentMethods(prev => prev.filter(method => method.id !== paymentToDelete.id));
+        toast.success('Método de pago eliminado');
+        setShowDeletePaymentModal(false);
+        setPaymentToDelete(null);
     };
 
     const tabs = [
@@ -231,7 +248,7 @@ export default function ConfiguracionPage() {
                                                 <button onClick={() => { setEditingZone(zone); setShowShippingModal(true); }} className="text-purple-600 hover:text-purple-700 font-medium p-2">
                                                     <Edit className="h-5 w-5" />
                                                 </button>
-                                                <button onClick={() => handleDeleteZone(zone.id)} className="text-red-600 hover:text-red-700 font-medium p-2">
+                                                <button onClick={() => handleDeleteZone(zone)} className="text-red-600 hover:text-red-700 font-medium p-2">
                                                     <Trash2 className="h-5 w-5" />
                                                 </button>
                                             </div>
@@ -272,7 +289,7 @@ export default function ConfiguracionPage() {
                                                 </div>
                                             </div>
                                             {method.id > 5 && (
-                                                <button onClick={(e) => { e.preventDefault(); handleDeletePaymentMethod(method.id); }} className="text-red-600 hover:text-red-700 p-2">
+                                                <button onClick={(e) => { e.preventDefault(); handleDeletePaymentMethod(method); }} className="text-red-600 hover:text-red-700 p-2">
                                                     <Trash2 className="h-5 w-5" />
                                                 </button>
                                             )}
@@ -319,6 +336,60 @@ export default function ConfiguracionPage() {
                         <div className="flex space-x-3 mt-6">
                             <button onClick={() => setShowPaymentModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-all">Cancelar</button>
                             <button onClick={handleAddPaymentMethod} className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 shadow-lg transition-all">Agregar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Zone Confirmation Modal */}
+            {showDeleteZoneModal && (
+                <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteZoneModal(false)}>
+                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-start space-x-4 mb-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <Truck className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2">Eliminar Zona de Envío</h3>
+                                <p className="text-gray-600 text-sm">
+                                    ¿Estás seguro de que deseas eliminar la zona "<strong>{zoneToDelete?.name}</strong>"?
+                                </p>
+                                <p className="text-gray-500 text-xs mt-2">
+                                    Los clientes de esta zona no podrán realizar compras hasta que agregues una nueva zona.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex space-x-3 mt-6">
+                            <button onClick={() => setShowDeleteZoneModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-all">Cancelar</button>
+                            <button onClick={confirmDeleteZone} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 shadow-lg transition-all">Eliminar Zona</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Payment Method Confirmation Modal */}
+            {showDeletePaymentModal && (
+                <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDeletePaymentModal(false)}>
+                    <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-start space-x-4 mb-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <CreditCard className="h-6 w-6 text-red-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-lg font-bold text-gray-900 mb-2">Eliminar Método de Pago</h3>
+                                <p className="text-gray-600 text-sm">
+                                    ¿Estás seguro de que deseas eliminar el método "<strong>{paymentToDelete?.name}</strong>"?
+                                </p>
+                                <p className="text-gray-500 text-xs mt-2">
+                                    Los clientes no podrán usar este método para realizar pagos.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex space-x-3 mt-6">
+                            <button onClick={() => setShowDeletePaymentModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-all">Cancelar</button>
+                            <button onClick={confirmDeletePaymentMethod} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 shadow-lg transition-all">Eliminar Método</button>
                         </div>
                     </div>
                 </div>

@@ -23,6 +23,7 @@ export default function OrderDetailPage() {
     const [updating, setUpdating] = useState(false);
     const [editingStatus, setEditingStatus] = useState(false);
     const [newStatus, setNewStatus] = useState('');
+    const [newPaymentStatus, setNewPaymentStatus] = useState('');
     const [trackingNumber, setTrackingNumber] = useState('');
     const [adminNotes, setAdminNotes] = useState('');
 
@@ -38,6 +39,7 @@ export default function OrderDetailPage() {
             const response = await api.get(`/orders/${order_number}/`);
             setOrder(response.data);
             setNewStatus(response.data.status);
+            setNewPaymentStatus(response.data.payment_status || 'pending');
             setTrackingNumber(response.data.tracking_number || '');
             setAdminNotes(response.data.admin_notes || '');
         } catch (error) {
@@ -53,6 +55,7 @@ export default function OrderDetailPage() {
         try {
             await api.patch(`/orders/${order_number}/`, {
                 status: newStatus,
+                payment_status: newPaymentStatus,
                 tracking_number: trackingNumber,
                 admin_notes: adminNotes,
             });
@@ -361,6 +364,21 @@ export default function OrderDetailPage() {
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Estado del pago
+                                        </label>
+                                        <select
+                                            value={newPaymentStatus}
+                                            onChange={(e) => setNewPaymentStatus(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                            <option value="pending">Pendiente</option>
+                                            <option value="verified">Verificado</option>
+                                            <option value="rejected">Rechazado</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Número de seguimiento
                                         </label>
                                         <input
@@ -398,6 +416,7 @@ export default function OrderDetailPage() {
                                             onClick={() => {
                                                 setEditingStatus(false);
                                                 setNewStatus(order.status);
+                                                setNewPaymentStatus(order.payment_status || 'pending');
                                                 setTrackingNumber(order.tracking_number || '');
                                                 setAdminNotes(order.admin_notes || '');
                                             }}

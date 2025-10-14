@@ -1,1 +1,43 @@
-'use client';\n\nimport { useState } from 'react';\nimport { useRouter } from 'next/navigation';\nimport AdminLayout from '@/components/admin/AdminLayout';\nimport BrandForm from '@/components/admin/BrandForm';\nimport api from '@/lib/api';\nimport toast from 'react-hot-toast';\n\nexport default function NuevaMarcaPage() {\n    const router = useRouter();\n    const [loading, setLoading] = useState(false);\n\n    const handleSubmit = async (formData) => {\n        setLoading(true);\n        try {\n            await api.post('/brands/', formData, {\n                headers: { 'Content-Type': 'multipart/form-data' },\n            });\n            toast.success('Marca creada exitosamente');\n            router.push('/admin/marcas');\n        } catch (error) {\n            console.error('Error:', error);\n            toast.error('Error al crear marca');\n        } finally {\n            setLoading(false);\n        }\n    };\n\n    return (\n        <AdminLayout>\n            <div className=\"max-w-4xl\">\n                <div className=\"mb-8\">\n                    <h1 className=\"text-3xl font-bold text-gray-900\">Nueva Marca</h1>\n                    <p className=\"text-gray-600 mt-1\">Completa la información de la marca</p>\n                </div>\n                <BrandForm onSubmit={handleSubmit} loading={loading} />\n            </div>\n        </AdminLayout>\n    );\n}
+'use client'
+
+import {useState} from 'react';
+import {useRouter} from 'next/navigation';
+import AdminLayout from '@/components/admin/AdminLayout';
+import BrandForm from '@/components/admin/BrandForm';
+import api from '@/lib/api';
+import toast from 'react-hot-toast';
+
+export default function NuevaMarcaPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const handleSubmit = async (formData) => {
+        setLoading(true);
+        try {
+            await api.post('/brands/', formData, {
+                headers: {
+                    'Content-Type':
+                        'multipart/form-data'
+                }
+                ,
+            })
+            ;
+            toast.success('Marca creada exitosamente');
+            router.push('/admin/marcas');
+        } catch (error) {
+            console.error('Error:', error);
+            toast.error('Error al crear marca');
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (< AdminLayout>
+        < div
+            className="max-w-4xl ">
+            <div className="mb-8 "><h1 className="text-3xl font-bold text-gray-900 ">Nueva
+                Marca
+            </h1>
+                <p className=
+                       "text-gray-600 mt-1 ">Completa la información de la marca</p></div>
+            <BrandForm onSubmit={handleSubmit} loading={loading}/></div>
+    </AdminLayout>);
+}
