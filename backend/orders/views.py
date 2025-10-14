@@ -273,10 +273,29 @@ class OrderViewSet(viewsets.ModelViewSet):
         })
 
 
+class ShippingZoneViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión completa de zonas de envío
+    GET /api/shipping-zones/ - Listar zonas
+    POST /api/shipping-zones/ - Crear zona (solo admin)
+    GET /api/shipping-zones/{id}/ - Detalle de zona
+    PATCH /api/shipping-zones/{id}/ - Actualizar zona (solo admin)
+    DELETE /api/shipping-zones/{id}/ - Eliminar zona (solo admin)
+    """
+    queryset = ShippingZone.objects.all()
+    serializer_class = ShippingZoneSerializer
+    
+    def get_permissions(self):
+        """Permitir GET público, resto solo admin"""
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAdminUser()]
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def shipping_zones_list(request):
-    """Listar zonas de envío disponibles"""
+    """Listar zonas de envío disponibles (deprecated, usar ViewSet)"""
     zones = ShippingZone.objects.filter(is_active=True)
     serializer = ShippingZoneSerializer(zones, many=True)
     return Response(serializer.data)

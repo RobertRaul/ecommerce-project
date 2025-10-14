@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from products.views import CategoryViewSet, BrandViewSet, ProductViewSet, ReviewViewSet
-from orders.views import CartViewSet, OrderViewSet, shipping_zones_list, calculate_shipping
+from orders.views import CartViewSet, OrderViewSet, ShippingZoneViewSet, calculate_shipping
 from users.views import LoginView
 
 # Router para ViewSets
@@ -18,6 +18,7 @@ router.register(r'products', ProductViewSet, basename='product')
 router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'orders', OrderViewSet, basename='order')
+router.register(r'shipping-zones', ShippingZoneViewSet, basename='shipping-zone')
 
 urlpatterns = [
     # Admin
@@ -49,7 +50,6 @@ urlpatterns = [
     # path('api/orders/<str:order_number>/upload-payment/', OrderViewSet.as_view({'post': 'upload_payment_proof'}), name='order-upload-payment'),
     #
     # Shipping
-    path('api/shipping-zones/', shipping_zones_list, name='shipping-zones'),
     path('api/calculate-shipping/', calculate_shipping, name='calculate-shipping'),
 
     # tus urls...

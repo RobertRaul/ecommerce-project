@@ -114,12 +114,12 @@ class OrderSerializer(serializers.ModelSerializer):
             'subtotal', 'shipping_cost', 'tax', 'discount', 'total',
             'payment_method', 'payment_method_display', 'payment_status',
             'payment_proof', 'transaction_id',
-            'status', 'status_display', 'customer_notes', 'tracking_number',
+            'status', 'status_display', 'customer_notes', 'admin_notes', 'tracking_number',
             'items', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'order_number', 'user', 'subtotal', 'total',
-            'payment_status', 'status', 'created_at', 'updated_at'
+            'created_at', 'updated_at'
         ]
 
 
@@ -152,9 +152,15 @@ class CreateOrderSerializer(serializers.Serializer):
 
 
 class ShippingZoneSerializer(serializers.ModelSerializer):
+    departments = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=list
+    )
+    
     class Meta:
         model = ShippingZone
         fields = [
             'id', 'name', 'departments', 'cost',
-            'free_shipping_threshold', 'estimated_days'
+            'free_shipping_threshold', 'estimated_days', 'is_active'
         ]
