@@ -10,6 +10,10 @@ class Cart(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
                              related_name='carts')
     session_key = models.CharField('Session Key', max_length=100, blank=True)  # Para usuarios no autenticados
+    
+    # Cupón aplicado
+    coupon_code = models.CharField('Código de cupón', max_length=50, blank=True, null=True)
+    discount_amount = models.DecimalField('Monto de descuento', max_digits=10, decimal_places=2, default=0)
 
     created_at = models.DateTimeField('Creado', auto_now_add=True)
     updated_at = models.DateTimeField('Actualizado', auto_now=True)
@@ -30,6 +34,11 @@ class Cart(models.Model):
     def subtotal(self):
         """Subtotal del carrito"""
         return sum(item.total_price for item in self.items.all())
+    
+    def get_total(self):
+        """Total con descuento aplicado"""
+        subtotal = self.subtotal
+        return subtotal - self.discount_amount if self.discount_amount else subtotal
 
 
 class CartItem(models.Model):
@@ -114,6 +123,10 @@ class Order(models.Model):
     tax = models.DecimalField('Impuestos', max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField('Descuento', max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField('Total', max_digits=10, decimal_places=2)
+    
+    # Cupón aplicado
+    coupon_code = models.CharField('Código de cupón', max_length=50, blank=True, null=True)
+    coupon_discount = models.DecimalField('Descuento por cupón', max_digits=10, decimal_places=2, default=0)
 
     # Pago
     payment_method = models.CharField('Método de pago', max_length=20, choices=PAYMENT_METHOD_CHOICES)

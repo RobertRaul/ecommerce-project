@@ -31,6 +31,8 @@ INSTALLED_APPS = [
     'users',
     'orders',
     'admin_api',
+    'permissions',  # Sistema de permisos
+    'coupons',  # Cupones de descuento
 
     #MCP
     'mcp_server',
@@ -43,6 +45,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'permissions.middleware.PermissionsMiddleware',  # Permisos
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -129,8 +132,8 @@ REST_FRAMEWORK = {
 
 # CORS (para desarrollo)
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3001',
-    'http://127.0.0.1:3001',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
 ]
 
 # CUSTOM USER MODEL (lo configuraremos después)

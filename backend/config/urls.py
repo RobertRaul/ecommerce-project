@@ -9,6 +9,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from products.views import CategoryViewSet, BrandViewSet, ProductViewSet, ReviewViewSet
 from orders.views import CartViewSet, OrderViewSet, ShippingZoneViewSet, calculate_shipping
 from users.views import LoginView
+from permissions.views import RoleViewSet, PermissionViewSet, UserRoleViewSet, PermissionLogViewSet
+from coupons.views import CouponViewSet, CouponUsageViewSet
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -19,6 +21,16 @@ router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'shipping-zones', ShippingZoneViewSet, basename='shipping-zone')
+
+# Permissions
+router.register(r'roles', RoleViewSet, basename='role')
+router.register(r'permissions', PermissionViewSet, basename='permission')
+router.register(r'user-roles', UserRoleViewSet, basename='user-role')
+router.register(r'permission-logs', PermissionLogViewSet, basename='permission-log')
+
+# Coupons
+router.register(r'coupons', CouponViewSet, basename='coupon')
+router.register(r'coupon-usage', CouponUsageViewSet, basename='coupon-usage')
 
 urlpatterns = [
     # Admin
