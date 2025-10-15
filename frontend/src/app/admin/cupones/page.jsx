@@ -29,7 +29,10 @@ export default function CuponesPage() {
             if (filterStatus !== 'all') params.append('is_active', filterStatus === 'active');
 
             const response = await api.get(`/coupons/?${params.toString()}`);
-            setCoupons(response.data || []);
+
+            // 🔍 Verifica qué está retornando
+            console.log('Response completa:', response.data);
+            setCoupons(response.data.results || []);
         } catch (error) {
             console.error('Error:', error);
             toast.error('Error al cargar cupones');
