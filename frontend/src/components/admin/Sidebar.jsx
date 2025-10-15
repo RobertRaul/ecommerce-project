@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard, Package, ShoppingCart, Users,
-    Tags, BarChart3, Settings, LogOut, X, Image as ImageIcon
+    Tags, BarChart3, Settings, LogOut, X, Image as ImageIcon, Shield, Ticket
 } from 'lucide-react';
 import useAuthStore from '@/store/authStore';
 
@@ -48,6 +48,16 @@ export default function Sidebar({ isOpen, onToggle }) {
             name: 'Reportes',
             href: '/admin/reportes',
             icon: BarChart3
+        },
+        {
+            name: 'Cupones',
+            href: '/admin/cupones',
+            icon: Ticket
+        },
+        {
+            name: 'Permisos',
+            href: '/admin/permisos',
+            icon: Shield
         },
         {
             name: 'Configuración',
