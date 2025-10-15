@@ -4,10 +4,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.utils import timezone  # Añadir este import
 from .models import Cart, CartItem, Order, OrderItem, ShippingZone
+from coupons.models import Coupon, CouponUsage
 from products.models import Product, ProductVariant
 from .serializers import (
-    CartSerializer, CartItemSerializer, AddToCartSerializer,
+    CartSerializer, AddToCartSerializer,
     OrderSerializer, CreateOrderSerializer, ShippingZoneSerializer
 )
 
@@ -196,7 +198,71 @@ class OrderViewSet(viewsets.ModelViewSet):
             else:
                 shipping_cost = shipping_zone.cost
 
-        total = subtotal + shipping_cost
+        # Procesar cupón
+        coupon_code = serializer.validated_data.get('coupon_code', '').strip()
+        discount_amount = serializer.validated_data.get('discount_amount', 0)
+        coupon = None
+
+        if coupon_code:
+            try:
+                coupon = Coupon.objects.get(
+                    code=coupon_code,
+                    is_active=True
+                )
+
+                # Validar que el cupón siga siendo válido
+                now = timezone.now()
+                if coupon.valid_from and now < coupon.valid_from:
+                    return Response(
+                        {'error': 'Este cupón aún no es válido'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if coupon.valid_from and now > coupon.valid_until:
+                    return Response(
+                        {'error': 'Este cupón ha expirado'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if coupon.usage_limit and coupon.times_used >= coupon.usage_limit:
+                    return Response(
+                        {'error': 'Este cupón ha alcanzado su límite de uso'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if coupon.minimum_purchase and subtotal < coupon.minimum_purchase:
+                    return Response(
+                        {'error': f'El monto mínimo para usar este cupón es S/ {coupon.minimum_purchase}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                from decimal import Decimal
+                # Recalcular el descuento para asegurar consistencia
+                if coupon.discount_type == 'percentage':
+                    calculated_discount = Decimal(str(subtotal)) * Decimal(str(coupon.discount_value)) / Decimal('100')
+                    if coupon.max_discount_amount:
+                        calculated_discount = min(calculated_discount, Decimal(str(coupon.max_discount_amount)))
+                else:  # fixed
+                    calculated_discount = Decimal(str(coupon.discount_value))
+
+                # Usar el menor entre el descuento calculado y el enviado
+                discount_amount = min(Decimal(str(discount_amount)), calculated_discount)
+
+            except Coupon.DoesNotExist:
+                return Response(
+                    {'error': 'Cupón inválido'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Calcular total
+        from decimal import Decimal
+
+        # Convert all values to Decimal if they aren't already
+        subtotal = Decimal(str(subtotal))
+        shipping_cost = Decimal(str(shipping_cost))
+        discount_amount = Decimal(str(discount_amount))
+
+        total = subtotal + shipping_cost - discount_amount
 
         # Crear orden
         order = Order.objects.create(
@@ -209,6 +275,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             shipping_postal_code=serializer.validated_data.get('shipping_postal_code', ''),
             subtotal=subtotal,
             shipping_cost=shipping_cost,
+            discount=discount_amount,
+            coupon_code=coupon_code if coupon else '',
+            coupon_discount=discount_amount if coupon else 0,
             total=total,
             payment_method=serializer.validated_data['payment_method'],
             customer_notes=serializer.validated_data.get('customer_notes', ''),
@@ -236,6 +305,20 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Incrementar ventas
             cart_item.product.sales_count += cart_item.quantity
             cart_item.product.save()
+
+        # Registrar uso del cupón
+        if coupon:
+            CouponUsage.objects.create(
+                coupon=coupon,
+                user=user,
+                order=order,
+                # Convierte el monto de descuento a Decimal
+                discount_amount=Decimal(str(discount_amount))
+            )
+
+            # Incrementar contador de usos
+            coupon.times_used += 1
+            coupon.save()
 
         # Vaciar carrito
         cart.items.all().delete()
@@ -284,7 +367,7 @@ class ShippingZoneViewSet(viewsets.ModelViewSet):
     """
     queryset = ShippingZone.objects.all()
     serializer_class = ShippingZoneSerializer
-    
+
     def get_permissions(self):
         """Permitir GET público, resto solo admin"""
         if self.action in ['list', 'retrieve']:

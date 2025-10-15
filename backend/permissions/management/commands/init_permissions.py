@@ -1,6 +1,19 @@
 from django.core.management.base import BaseCommand
 from permissions.models import Role, Permission, RolePermission
 
+#
+# # 1. Crear migraciones
+# python manage.py makemigrations permissions
+#
+# # 2. Aplicar migraciones
+# python manage.py migrate
+#
+# # 3. Inicializar permisos y roles
+# python manage.py init_permissions
+#
+# # 4. Asignar rol a tu usuario (en shell)
+# # 5. Reiniciar servidores
+# #
 
 class Command(BaseCommand):
     help = 'Inicializar roles y permisos del sistema'

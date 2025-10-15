@@ -137,6 +137,15 @@ class CreateOrderSerializer(serializers.Serializer):
     # Método de pago
     payment_method = serializers.ChoiceField(choices=Order.PAYMENT_METHOD_CHOICES)
 
+    # Agregar campos para el cupón
+    coupon_code = serializers.CharField(required=False, allow_blank=True)
+    discount_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0
+    )
+
     # Notas
     customer_notes = serializers.CharField(required=False, allow_blank=True)
 

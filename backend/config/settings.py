@@ -10,6 +10,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(','
 
 # APPS
 INSTALLED_APPS = [
+    'daphne',  # WebSockets - debe ir primero
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'corsheaders',
+    'channels',  # WebSockets
 
     # Local apps
     'core',
@@ -33,6 +35,7 @@ INSTALLED_APPS = [
     'admin_api',
     'permissions',  # Sistema de permisos
     'coupons',  # Cupones de descuento
+    'notifications',  # Sistema de notificaciones
 
     #MCP
     'mcp_server',
@@ -69,6 +72,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Channels - WebSocket configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 # DATABASE
 DATABASES = {
