@@ -11,6 +11,7 @@ from orders.views import CartViewSet, OrderViewSet, ShippingZoneViewSet, calcula
 from users.views import LoginView
 from permissions.views import RoleViewSet, PermissionViewSet, UserRoleViewSet, PermissionLogViewSet
 from coupons.views import CouponViewSet, CouponUsageViewSet
+from notifications.views import NotificationViewSet
 
 # Router para ViewSets
 router = DefaultRouter()
@@ -32,6 +33,9 @@ router.register(r'permission-logs', PermissionLogViewSet, basename='permission-l
 router.register(r'coupons', CouponViewSet, basename='coupon')
 router.register(r'coupon-usage', CouponUsageViewSet, basename='coupon-usage')
 
+# Notifications
+router.register(r'notifications', NotificationViewSet, basename='notification')
+
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
@@ -48,19 +52,6 @@ urlpatterns = [
     # API Router (incluye products, categories, brands, reviews, cart, orders)
     path('api/', include(router.urls)),
     
-    # # Cart endpoints
-    # path('api/cart/', CartViewSet.as_view({'get': 'list'}), name='cart-list'),
-    # path('api/cart/add/', CartViewSet.as_view({'post': 'add'}), name='cart-add'),
-    # path('api/cart/update/<int:item_id>/', CartViewSet.as_view({'put': 'update_item'}), name='cart-update'),
-    # path('api/cart/remove/<int:item_id>/', CartViewSet.as_view({'delete': 'remove_item'}), name='cart-remove'),
-    # path('api/cart/clear/', CartViewSet.as_view({'delete': 'clear'}), name='cart-clear'),
-    #
-    # # Order endpoints
-    # path('api/orders/', OrderViewSet.as_view({'get': 'list'}), name='order-list'),
-    # path('api/orders/<str:order_number>/', OrderViewSet.as_view({'get': 'retrieve'}), name='order-detail'),
-    # path('api/orders/create/', OrderViewSet.as_view({'post': 'create_order'}), name='order-create'),
-    # path('api/orders/<str:order_number>/upload-payment/', OrderViewSet.as_view({'post': 'upload_payment_proof'}), name='order-upload-payment'),
-    #
     # Shipping
     path('api/calculate-shipping/', calculate_shipping, name='calculate-shipping'),
 
@@ -69,6 +60,9 @@ urlpatterns = [
 
     # Admin API
     path('api/admin/', include('admin_api.urls')),
+
+    # Notifications Test
+    path('notifications/', include('notifications.urls')),
 ]
 
 # Serve media files in development

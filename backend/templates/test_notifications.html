@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Notificaciones WebSocket</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status.disconnected {
+            background: #fee;
+            color: #c33;
+        }
+
+        .status.connected {
+            background: #efe;
+            color: #3c3;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .status.disconnected .status-indicator {
+            background: #c33;
+            animation: none;
+        }
+
+        .status.connected .status-indicator {
+            background: #3c3;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e0e0e0;
+        }
+
+        .notifications-list {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .notifications-list h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .notification-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .notification-item.urgent {
+            border-left-color: #ff4757;
+        }
+
+        .notification-item.high {
+            border-left-color: #ffa502;
+        }
+
+        .notification-item.medium {
+            border-left-color: #667eea;
+        }
+
+        .notification-item.low {
+            border-left-color: #9ca3af;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 8px;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .notification-time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .notification-message {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .notification-type {
+            display: inline-block;
+            background: #f0f0f0;
+            color: #666;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .empty-state svg {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .scrollbar {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prueba de Notificaciones WebSocket</h1>
+
+        <div class="status disconnected" id="status">
+            <div class="status-indicator"></div>
+            <span id="status-text">Desconectado</span>
+        </div>
+
+        <div class="input-group">
+            <label for="token">Token JWT:</label>
+            <input
+                type="password"
+                id="token"
+                placeholder="Pega tu token JWT aquí"
+                autocomplete="off"
+            >
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="connect-btn" onclick="connectWebSocket()">
+                Conectar WebSocket
+            </button>
+            <button class="btn-secondary" id="disconnect-btn" onclick="disconnectWebSocket()" disabled>
+                Desconectar
+            </button>
+        </div>
+
+        <div class="input-group">
+            <label>Pruebas Rápidas:</label>
+            <div class="button-group">
+                <button class="btn-secondary" id="ping-btn" onclick="sendPing()" disabled>
+                    Enviar Ping
+                </button>
+                <button class="btn-secondary" id="unread-btn" onclick="getUnreadCount()" disabled>
+                    Contar No Leídas
+                </button>
+            </div>
+        </div>
+
+        <div class="notifications-list">
+            <h3>Notificaciones Recibidas:</h3>
+            <div id="notifications" class="scrollbar">
+                <div class="empty-state">
+                    <p>No hay notificaciones aún</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const token = document.getElementById('token');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const statusDiv = document.getElementById('status');
+        const statusText = document.getElementById('status-text');
+        const notificationsDiv = document.getElementById('notifications');
+        const testBtns = ['ping-btn', 'unread-btn'];
+
+        function updateStatus(connected) {
+            statusDiv.className = `status ${connected ? 'connected' : 'disconnected'}`;
+            statusText.textContent = connected ? 'Conectado' : 'Desconectado';
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            testBtns.forEach(btn => {
+                document.getElementById(btn).disabled = !connected;
+            });
+        }
+
+        function connectWebSocket() {
+            const tokenValue = token.value.trim();
+            if (!tokenValue) {
+                alert('Por favor ingresa tu token JWT');
+                return;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/notifications/?token=${tokenValue}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('WebSocket conectado');
+                    updateStatus(true);
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log('Mensaje recibido:', data);
+                    handleWebSocketMessage(data);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('Error WebSocket:', error);
+                    alert('Error de conexión: ' + error);
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket desconectado');
+                    updateStatus(false);
+                    ws = null;
+                };
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al conectar: ' + error);
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function sendPing() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'ping',
+                    timestamp: new Date().toISOString()
+                }));
+                console.log('Ping enviado');
+            }
+        }
+
+        function getUnreadCount() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'get_unread_count'
+                }));
+            }
+        }
+
+        function handleWebSocketMessage(data) {
+            const type = data.type;
+
+            switch(type) {
+                case 'connection_established':
+                    showNotification({
+                        title: 'Conectado',
+                        message: data.message,
+                        type: 'system',
+                        priority: 'high'
+                    });
+                    break;
+
+                case 'notification':
+                    showNotification(data.notification);
+                    break;
+
+                case 'pong':
+                    console.log('Pong recibido');
+                    showNotification({
+                        title: 'Pong',
+                        message: 'Pong recibido del servidor',
+                        type: 'system',
+                        priority: 'low'
+                    });
+                    break;
+
+                case 'unread_count':
+                    showNotification({
+                        title: 'Notificaciones no leídas',
+                        message: `Total: ${data.count}`,
+                        type: 'system',
+                        priority: 'medium'
+                    });
+                    break;
+
+                case 'initial_notifications':
+                    if (data.notifications.length > 0) {
+                        data.notifications.forEach(notif => showNotification(notif));
+                    }
+                    break;
+
+                default:
+                    console.log('Tipo de mensaje desconocido:', type, data);
+            }
+        }
+
+        function showNotification(notification) {
+            const container = document.getElementById('notifications');
+
+            // Limpiar mensaje vacío si es la primera notificación
+            if (container.querySelector('.empty-state')) {
+                container.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = `notification-item ${notification.priority || 'medium'}`;
+
+            const time = new Date(notification.created_at).toLocaleTimeString('es-ES');
+
+            item.innerHTML = `
+                <div class="notification-header">
+                    <span class="notification-title">${notification.title}</span>
+                    <span class="notification-time">${time}</span>
+                </div>
+                <p class="notification-message">${notification.message}</p>
+                <span class="notification-type">${notification.type}</span>
+            `;
+
+            container.insertBefore(item, container.firstChild);
+        }
+
+        // Inicializar estado
+        updateStatus(false);
+    </script>
+</body>
+</html>

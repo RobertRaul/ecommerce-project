@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Read(//d/ecommerce-project/frontend/**)",
+      "Bash(python manage.py test_notifications:*)",
+      "Bash(cat:*)",
+      "Bash(del NotificationContext.js)",
+      "Bash(del NotificationContext.jsx)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

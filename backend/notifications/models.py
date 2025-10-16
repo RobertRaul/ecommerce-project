@@ -67,7 +67,6 @@ class Notification(models.Model):
     # Referencias opcionales
     order_id = models.IntegerField(null=True, blank=True)
     product_id = models.IntegerField(null=True, blank=True)
-    user_id = models.IntegerField(null=True, blank=True)
     
     # URL para acción
     action_url = models.CharField(
