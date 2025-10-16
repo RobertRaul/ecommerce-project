@@ -105,6 +105,7 @@ export default function UserForm({ onSubmit, loading = false, initialData = null
 
         if (!isEdit) {
             submitData.password = formData.password;
+            submitData.confirm_password = formData.confirm_password;
         }
 
         onSubmit(submitData);

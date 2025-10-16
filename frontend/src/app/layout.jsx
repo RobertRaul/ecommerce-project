@@ -1,19 +1,21 @@
+'use client';
+
 import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import NotificationToastContainer from '@/components/notifications/NotificationToastContainer';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
-    title: 'Ecommerce - Tu Tienda Online',
-    description: 'Los mejores productos de tecnología al mejor precio',
-};
 
 export default function RootLayout({ children }) {
     return (
         <html lang="es">
         <body className={inter.className}>
-        {children}
+        <NotificationProvider>
+            <NotificationToastContainer />
+            {children}
+        </NotificationProvider>
         <Toaster
             position="top-right"
             toastOptions={{

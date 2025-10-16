@@ -1,0 +1,20 @@
+# Frontend Dockerfile for Development
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Instalar dependencias
+RUN apk add --no-cache libc6-compat
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar código
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
