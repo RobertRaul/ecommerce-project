@@ -127,10 +127,21 @@ export default function CategoriesPage() {
 
 // Componente de tarjeta de categoría
 function CategoryCard({ category }) {
+    const handleCategoryClick = (e, categoryId) => {
+        e.preventDefault();
+        window.location.href = `/productos?category=${categoryId}`;
+    };
+
+    const handleSubcategoryClick = (e, subcategoryId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = `/productos?category=${subcategoryId}`;
+    };
+
     return (
-        <Link
-            href={`/productos?category=${category.id}`}
-            className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all overflow-hidden group"
+        <div
+            onClick={(e) => handleCategoryClick(e, category.id)}
+            className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all overflow-hidden group cursor-pointer"
         >
             <div className="relative h-40 bg-gradient-to-br from-purple-500 to-blue-500 overflow-hidden">
                 {category.image ? (
@@ -179,14 +190,13 @@ function CategoryCard({ category }) {
                         <p className="text-xs font-medium text-gray-700 mb-2">Subcategorías:</p>
                         <div className="flex flex-wrap gap-2">
                             {category.subcategories.slice(0, 3).map((sub) => (
-                                <Link
+                                <button
                                     key={sub.id}
-                                    href={`/productos?category=${sub.id}`}
-                                    onClick={(e) => e.stopPropagation()}
+                                    onClick={(e) => handleSubcategoryClick(e, sub.id)}
                                     className="text-xs bg-gray-100 hover:bg-purple-100 hover:text-purple-600 px-2 py-1 rounded transition"
                                 >
                                     {sub.name}
-                                </Link>
+                                </button>
                             ))}
                             {category.subcategories.length > 3 && (
                                 <span className="text-xs text-gray-500 px-2 py-1">
@@ -197,7 +207,7 @@ function CategoryCard({ category }) {
                     </div>
                 )}
             </div>
-        </Link>
+        </div>
     );
 }
 

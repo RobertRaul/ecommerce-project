@@ -18,19 +18,22 @@ export default function ConfiguracionPage() {
     const [zoneToDelete, setZoneToDelete] = useState(null);
     const [paymentToDelete, setPaymentToDelete] = useState(null);
     const [editingZone, setEditingZone] = useState(null);
-    const [paymentMethods, setPaymentMethods] = useState([
-        { id: 1, name: 'Yape', enabled: true, description: 'Transferencias por Yape' },
-        { id: 2, name: 'Plin', enabled: true, description: 'Transferencias por Plin' },
-        { id: 3, name: 'Transferencia Bancaria', enabled: true, description: 'Depósito o transferencia bancaria' },
-        { id: 4, name: 'Tarjeta de Crédito/Débito', enabled: false, description: 'Pagos con tarjeta (requiere integración)' },
-        { id: 5, name: 'Contraentrega', enabled: false, description: 'Pago en efectivo al recibir' },
-    ]);
+    const [editingPayment, setEditingPayment] = useState(null);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
-    const [newPaymentMethod, setNewPaymentMethod] = useState({ name: '', description: '' });
+    const [newPaymentMethod, setNewPaymentMethod] = useState({
+        name: '',
+        code: '',
+        description: '',
+        icon: '💳',
+        requires_proof: false
+    });
 
     useEffect(() => {
         if (activeTab === 'envio') {
             fetchShippingZones();
+        } else if (activeTab === 'pago') {
+            fetchPaymentMethods();
         }
     }, [activeTab]);
 
@@ -43,6 +46,18 @@ export default function ConfiguracionPage() {
             console.error('Error:', error);
             toast.error('Error al cargar zonas de envío');
             setShippingZones([]);
+        }
+    };
+
+    const fetchPaymentMethods = async () => {
+        try {
+            const response = await api.get('/payment-methods/');
+            const data = response.data.results || response.data;
+            setPaymentMethods(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error:', error);
+            toast.error('Error al cargar métodos de pago');
+            setPaymentMethods([]);
         }
     };
 
@@ -92,12 +107,37 @@ export default function ConfiguracionPage() {
         }
     };
 
-    const togglePaymentMethod = (id) => {
-        setPaymentMethods(prev => 
-            prev.map(method => 
-                method.id === id ? { ...method, enabled: !method.enabled } : method
-            )
-        );
+    const togglePaymentMethod = async (method) => {
+        try {
+            await api.patch(`/payment-methods/${method.id}/`, {
+                is_enabled: !method.is_enabled
+            });
+            toast.success(method.is_enabled ? 'Método deshabilitado' : 'Método habilitado');
+            fetchPaymentMethods();
+        } catch (error) {
+            toast.error('Error al actualizar método');
+            console.error('Error:', error);
+        }
+    };
+
+    const handleSavePaymentMethod = async (methodData) => {
+        try {
+            if (editingPayment) {
+                await api.patch(`/payment-methods/${editingPayment.id}/`, methodData);
+                toast.success('Método actualizado');
+            } else {
+                await api.post('/payment-methods/', methodData);
+                toast.success('Método creado');
+            }
+            fetchPaymentMethods();
+            setShowPaymentModal(false);
+            setEditingPayment(null);
+            setNewPaymentMethod({ name: '', code: '', description: '', icon: '💳', requires_proof: false });
+        } catch (error) {
+            const errorMsg = error.response?.data?.code?.[0] || error.response?.data?.name?.[0] || 'Error al guardar método';
+            toast.error(errorMsg);
+            console.error('Error:', error);
+        }
     };
 
     const handleAddPaymentMethod = () => {
@@ -105,16 +145,19 @@ export default function ConfiguracionPage() {
             toast.error('El nombre es requerido');
             return;
         }
-        const newMethod = {
-            id: Date.now(),
+        if (!newPaymentMethod.code.trim()) {
+            toast.error('El código es requerido');
+            return;
+        }
+        handleSavePaymentMethod({
             name: newPaymentMethod.name,
+            code: newPaymentMethod.code.toLowerCase().replace(/\s+/g, '_'),
             description: newPaymentMethod.description,
-            enabled: true
-        };
-        setPaymentMethods(prev => [...prev, newMethod]);
-        setNewPaymentMethod({ name: '', description: '' });
-        setShowPaymentModal(false);
-        toast.success('Método de pago agregado');
+            icon: newPaymentMethod.icon,
+            requires_proof: newPaymentMethod.requires_proof,
+            is_enabled: true,
+            display_order: paymentMethods.length + 1
+        });
     };
 
     const handleDeletePaymentMethod = (method) => {
@@ -122,11 +165,17 @@ export default function ConfiguracionPage() {
         setShowDeletePaymentModal(true);
     };
 
-    const confirmDeletePaymentMethod = () => {
-        setPaymentMethods(prev => prev.filter(method => method.id !== paymentToDelete.id));
-        toast.success('Método de pago eliminado');
-        setShowDeletePaymentModal(false);
-        setPaymentToDelete(null);
+    const confirmDeletePaymentMethod = async () => {
+        try {
+            await api.delete(`/payment-methods/${paymentToDelete.id}/`);
+            toast.success('Método eliminado');
+            fetchPaymentMethods();
+            setShowDeletePaymentModal(false);
+            setPaymentToDelete(null);
+        } catch (error) {
+            toast.error('Error al eliminar método');
+            console.error('Error:', error);
+        }
     };
 
     const tabs = [
@@ -272,29 +321,53 @@ export default function ConfiguracionPage() {
                                         <h2 className="text-lg font-bold text-gray-900">Métodos de Pago</h2>
                                         <p className="text-gray-600">Activa o desactiva los métodos de pago disponibles</p>
                                     </div>
-                                    <button onClick={() => setShowPaymentModal(true)} className="inline-flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
+                                    <button onClick={() => { setEditingPayment(null); setNewPaymentMethod({ name: '', code: '', description: '', icon: '💳', requires_proof: false }); setShowPaymentModal(true); }} className="inline-flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition">
                                         <Plus className="h-5 w-5" />
                                         <span>Agregar Método</span>
                                     </button>
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     {paymentMethods.map((method) => (
-                                        <label key={method.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                        <div key={method.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
                                             <div className="flex items-center space-x-3">
-                                                <input type="checkbox" checked={method.enabled} onChange={() => togglePaymentMethod(method.id)} className="w-5 h-5 text-purple-600 rounded" />
-                                                <div>
-                                                    <h3 className="font-semibold text-gray-900">{method.name}</h3>
-                                                    <p className="text-sm text-gray-500">{method.description}</p>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={method.is_enabled}
+                                                    onChange={() => togglePaymentMethod(method)}
+                                                    className="w-5 h-5 text-purple-600 rounded cursor-pointer"
+                                                />
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-2xl">{method.icon || '💳'}</span>
+                                                    <div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <h3 className="font-semibold text-gray-900">{method.name}</h3>
+                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{method.code}</span>
+                                                            {method.requires_proof && (
+                                                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Req. comprobante</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-gray-500">{method.description}</p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {method.id > 5 && (
-                                                <button onClick={(e) => { e.preventDefault(); handleDeletePaymentMethod(method); }} className="text-red-600 hover:text-red-700 p-2">
+                                            <div className="flex items-center space-x-2">
+                                                <button onClick={() => { setEditingPayment(method); setNewPaymentMethod({ name: method.name, code: method.code, description: method.description, icon: method.icon || '💳', requires_proof: method.requires_proof }); setShowPaymentModal(true); }} className="text-purple-600 hover:text-purple-700 font-medium p-2">
+                                                    <Edit className="h-5 w-5" />
+                                                </button>
+                                                <button onClick={() => handleDeletePaymentMethod(method)} className="text-red-600 hover:text-red-700 font-medium p-2">
                                                     <Trash2 className="h-5 w-5" />
                                                 </button>
-                                            )}
-                                        </label>
+                                            </div>
+                                        </div>
                                     ))}
+
+                                    {paymentMethods.length === 0 && (
+                                        <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                                            <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                                            <p className="text-gray-600">No hay métodos de pago configurados</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -316,26 +389,54 @@ export default function ConfiguracionPage() {
                 <div className="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPaymentModal(false)}>
                     <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">Agregar Método de Pago</h3>
+                            <h3 className="text-xl font-bold text-gray-900">{editingPayment ? 'Editar' : 'Agregar'} Método de Pago</h3>
                             <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="h-6 w-6" />
                             </button>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre del Método</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre del Método *</label>
                                 <input type="text" value={newPaymentMethod.name} onChange={(e) => setNewPaymentMethod(prev => ({ ...prev, name: e.target.value }))} placeholder="Ej: PagoEfectivo" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Código *</label>
+                                <input
+                                    type="text"
+                                    value={newPaymentMethod.code}
+                                    onChange={(e) => setNewPaymentMethod(prev => ({ ...prev, code: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
+                                    placeholder="Ej: pago_efectivo"
+                                    disabled={editingPayment}
+                                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 ${editingPayment ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Solo letras minúsculas, números y guiones bajos</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
                                 <textarea value={newPaymentMethod.description} onChange={(e) => setNewPaymentMethod(prev => ({ ...prev, description: e.target.value }))} rows={3} placeholder="Describe el método de pago..." className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Icono (emoji)</label>
+                                <input type="text" value={newPaymentMethod.icon} onChange={(e) => setNewPaymentMethod(prev => ({ ...prev, icon: e.target.value }))} placeholder="💳" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    id="requires_proof"
+                                    checked={newPaymentMethod.requires_proof}
+                                    onChange={(e) => setNewPaymentMethod(prev => ({ ...prev, requires_proof: e.target.checked }))}
+                                    className="w-5 h-5 text-purple-600 rounded"
+                                />
+                                <label htmlFor="requires_proof" className="text-sm font-medium text-gray-900">
+                                    Requiere comprobante de pago
+                                </label>
+                            </div>
                         </div>
 
                         <div className="flex space-x-3 mt-6">
                             <button onClick={() => setShowPaymentModal(false)} className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-all">Cancelar</button>
-                            <button onClick={handleAddPaymentMethod} className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 shadow-lg transition-all">Agregar</button>
+                            <button onClick={handleAddPaymentMethod} className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 shadow-lg transition-all">{editingPayment ? 'Actualizar' : 'Agregar'}</button>
                         </div>
                     </div>
                 </div>

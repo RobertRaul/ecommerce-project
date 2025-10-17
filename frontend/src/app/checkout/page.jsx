@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { CreditCard, Truck, MapPin, Phone, Mail, Lock, Tag, X } from 'lucide-react';
@@ -10,6 +10,42 @@ import useAuthStore from '@/store/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
+// Memoized Cart Item Component for better performance
+const CartItemSummary = memo(({ item }) => (
+    <div className="flex space-x-3">
+        <div className="relative w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+            {item.product_detail.primary_image ? (
+                <Image
+                    src={item.product_detail.primary_image}
+                    alt={item.product_detail.name}
+                    fill
+                    className="object-cover"
+                />
+            ) : (
+                <div className="flex items-center justify-center h-full">
+                    <MapPin className="h-6 w-6 text-gray-400" />
+                </div>
+            )}
+            <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+                {item.quantity}
+            </div>
+        </div>
+        <div className="flex-1">
+            <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
+                {item.product_detail.name}
+            </h3>
+            {item.variant_name && (
+                <p className="text-xs text-gray-600">{item.variant_name}</p>
+            )}
+            <p className="text-sm font-semibold text-gray-900 mt-1">
+                S/ {item.total_price}
+            </p>
+        </div>
+    </div>
+));
+
+CartItemSummary.displayName = 'CartItemSummary';
+
 export default function CheckoutPage() {
     const router = useRouter();
     const { cart, fetchCart } = useCartStore();
@@ -18,6 +54,7 @@ export default function CheckoutPage() {
     const [loading, setLoading] = useState(false);
     const [shippingZones, setShippingZones] = useState([]);
     const [shippingCost, setShippingCost] = useState(0);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
     // Estado para cupones
     const [couponCode, setCouponCode] = useState('');
@@ -39,31 +76,40 @@ export default function CheckoutPage() {
     });
     const [errors, setErrors] = useState({});
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            router.push('/login?redirect=/checkout');
-            return;
-        }
-        fetchCart();
-        fetchShippingZones();
-    }, [isAuthenticated]);
-
-    useEffect(() => {
-        if (formData.shipping_department && cart?.subtotal) {
-            calculateShipping();
-        }
-    }, [formData.shipping_department, cart?.subtotal]);
-
-    const fetchShippingZones = async () => {
+    // Fetch shipping zones (memoized)
+    const fetchShippingZones = useCallback(async () => {
         try {
             const response = await api.get('/shipping-zones/');
             setShippingZones(response.data);
         } catch (error) {
             console.error('Error al cargar zonas de envío:', error);
         }
-    };
+    }, []);
 
-    const calculateShipping = async () => {
+    // Fetch payment methods (memoized)
+    const fetchPaymentMethods = useCallback(async () => {
+        try {
+            const response = await api.get('/payment-methods/');
+            const methods = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+            setPaymentMethods(methods);
+
+            // Si hay métodos y el método actual no está en la lista, seleccionar el primero
+            if (methods.length > 0) {
+                const currentMethodExists = methods.some(m => m.value === formData.payment_method);
+                if (!currentMethodExists) {
+                    setFormData(prev => ({ ...prev, payment_method: methods[0].value }));
+                }
+            }
+        } catch (error) {
+            console.error('Error al cargar métodos de pago:', error);
+            setPaymentMethods([]);
+        }
+    }, [formData.payment_method]);
+
+    // Calculate shipping cost (memoized)
+    const calculateShipping = useCallback(async () => {
+        if (!cart?.subtotal || !formData.shipping_department) return;
+
         try {
             const response = await api.post('/calculate-shipping/', {
                 department: formData.shipping_department,
@@ -77,12 +123,17 @@ export default function CheckoutPage() {
         } catch (error) {
             console.error('Error al calcular envío:', error);
         }
-    };
+    }, [cart?.subtotal, formData.shipping_department]);
 
-    // Aplicar cupón
-    const handleApplyCoupon = async () => {
+    // Apply coupon (memoized)
+    const handleApplyCoupon = useCallback(async () => {
         if (!couponCode.trim()) {
             toast.error('Ingresa un código de cupón');
+            return;
+        }
+
+        if (!cart?.subtotal) {
+            toast.error('Error: Carrito no disponible');
             return;
         }
 
@@ -105,27 +156,37 @@ export default function CheckoutPage() {
         } finally {
             setCouponLoading(false);
         }
-    };
+    }, [couponCode, cart?.subtotal]);
 
-    // Remover cupón
-    const handleRemoveCoupon = () => {
+    // Remove coupon (memoized)
+    const handleRemoveCoupon = useCallback(() => {
         setAppliedCoupon(null);
         setDiscount(0);
         setCouponCode('');
         toast.success('Cupón removido');
-    };
+    }, []);
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
+    // Handle form field changes (memoized)
+    const handleChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+        }));
+
+        // Clear error for this field if it exists
+        setErrors(prev => {
+            if (prev[name]) {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            }
+            return prev;
         });
-        if (errors[e.target.name]) {
-            setErrors({ ...errors, [e.target.name]: '' });
-        }
-    };
+    }, []);
 
-    const validateForm = () => {
+    // Validate form (memoized)
+    const validateForm = useCallback(() => {
         const newErrors = {};
 
         if (!formData.email) newErrors.email = 'El correo es requerido';
@@ -138,9 +199,24 @@ export default function CheckoutPage() {
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
+    }, [formData]);
 
-    const handleSubmit = async (e) => {
+    useEffect(() => {
+        if (!isAuthenticated) {
+            router.push('/login?redirect=/checkout');
+            return;
+        }
+        fetchCart();
+        fetchShippingZones();
+        fetchPaymentMethods();
+    }, [isAuthenticated, fetchCart, fetchShippingZones, fetchPaymentMethods, router]);
+
+    useEffect(() => {
+        calculateShipping();
+    }, [calculateShipping]);
+
+    // Submit order (memoized)
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
 
         if (!validateForm()) {
@@ -158,8 +234,8 @@ export default function CheckoutPage() {
         try {
             const orderData = {
                 ...formData,
-                coupon_code: appliedCoupon.code || '',
-                discount_amount:discount || 0,
+                coupon_code: appliedCoupon?.code || '',
+                discount_amount: discount || 0,
             };
 
             const response = await api.post('/orders/create_order/', orderData);
@@ -173,8 +249,22 @@ export default function CheckoutPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [validateForm, cart, formData, appliedCoupon, discount, router]);
 
+    // Calculate totals (memoized for performance)
+    const { subtotal, total } = useMemo(() => {
+        const sub = cart?.subtotal ? parseFloat(cart.subtotal) : 0;
+        const ship = parseFloat(shippingCost) || 0;
+        const disc = parseFloat(discount) || 0;
+        const tot = sub - disc + ship;
+
+        return {
+            subtotal: sub,
+            total: Math.max(0, tot), // Ensure total is never negative
+        };
+    }, [cart?.subtotal, shippingCost, discount]);
+
+    // Early return for empty cart
     if (!cart || cart.items.length === 0) {
         return (
             <Layout>
@@ -195,9 +285,6 @@ export default function CheckoutPage() {
             </Layout>
         );
     }
-
-    const subtotal = parseFloat(cart.subtotal);
-    const total = subtotal - discount + parseFloat(shippingCost);
 
     return (
         <Layout>
@@ -403,35 +490,47 @@ export default function CheckoutPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    {[
-                                        { value: 'yape', label: 'Yape', icon: '📱' },
-                                        { value: 'plin', label: 'Plin', icon: '💳' },
-                                        { value: 'transfer', label: 'Transferencia Bancaria', icon: '🏦' },
-                                        { value: 'cash', label: 'Efectivo contra entrega', icon: '💵' },
-                                    ].map((method) => (
-                                        <label
-                                            key={method.value}
-                                            className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition ${
-                                                formData.payment_method === method.value
-                                                    ? 'border-purple-600 bg-purple-50'
-                                                    : 'border-gray-200 hover:border-purple-300'
-                                            }`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="payment_method"
-                                                value={method.value}
-                                                checked={formData.payment_method === method.value}
-                                                onChange={handleChange}
-                                                className="w-4 h-4 text-purple-600 focus:ring-purple-500"
-                                            />
-                                            <span className="text-2xl">{method.icon}</span>
-                                            <span className="font-medium text-gray-900">{method.label}</span>
-                                        </label>
-                                    ))}
+                                    {paymentMethods.length > 0 ? (
+                                        paymentMethods.map((method) => {
+                                            const icon = method.icon || '💳';
+
+                                            return (
+                                                <label
+                                                    key={method.value}
+                                                    className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition ${
+                                                        formData.payment_method === method.value
+                                                            ? 'border-purple-600 bg-purple-50'
+                                                            : 'border-gray-200 hover:border-purple-300'
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="payment_method"
+                                                        value={method.value}
+                                                        checked={formData.payment_method === method.value}
+                                                        onChange={handleChange}
+                                                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                                                    />
+                                                    <span className="text-2xl">{icon}</span>
+                                                    <div className="flex-1">
+                                                        <span className="font-medium text-gray-900">{method.label}</span>
+                                                        {method.description && (
+                                                            <p className="text-xs text-gray-500 mt-1">{method.description}</p>
+                                                        )}
+                                                    </div>
+                                                </label>
+                                            );
+                                        })
+                                    ) : (
+                                        // Fallback if API fails
+                                        <div className="text-center py-8 text-gray-500">
+                                            <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                                            <p>No hay métodos de pago disponibles</p>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {['yape', 'plin', 'transfer'].includes(formData.payment_method) && (
+                                {paymentMethods.find(m => m.value === formData.payment_method && m.requires_proof) && (
                                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                         <p className="text-sm text-blue-800">
                                             <Lock className="inline h-4 w-4 mr-1" />
@@ -468,36 +567,7 @@ export default function CheckoutPage() {
                                 {/* Products */}
                                 <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
                                     {cart.items.map((item) => (
-                                        <div key={item.id} className="flex space-x-3">
-                                            <div className="relative w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                                                {item.product_detail.primary_image ? (
-                                                    <Image
-                                                        src={item.product_detail.primary_image}
-                                                        alt={item.product_detail.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex items-center justify-center h-full">
-                                                        <MapPin className="h-6 w-6 text-gray-400" />
-                                                    </div>
-                                                )}
-                                                <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-                                                    {item.quantity}
-                                                </div>
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
-                                                    {item.product_detail.name}
-                                                </h3>
-                                                {item.variant_name && (
-                                                    <p className="text-xs text-gray-600">{item.variant_name}</p>
-                                                )}
-                                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                                    S/ {item.total_price}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        <CartItemSummary key={item.id} item={item} />
                                     ))}
                                 </div>
 

@@ -1,11 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, AlertCircle, Info, CheckCircle, Bell } from 'lucide-react';
 
 export default function NotificationToast({ notification, onClose }) {
+    const router = useRouter();
     const [isVisible, setIsVisible] = useState(false);
     const [progress, setProgress] = useState(100);
+
+    // Optimización: Función handleClose memoizada
+    const handleClose = useCallback(() => {
+        setIsVisible(false);
+        setTimeout(() => onClose(), 300);
+    }, [onClose]);
+
+    // Optimización: Función de navegación memoizada
+    const handleActionClick = useCallback(() => {
+        if (notification.action_url) {
+            router.push(notification.action_url);
+            handleClose();
+        }
+    }, [notification.action_url, router, handleClose]);
 
     useEffect(() => {
         setTimeout(() => setIsVisible(true), 10);
@@ -29,14 +45,10 @@ export default function NotificationToast({ notification, onClose }) {
             clearInterval(progressTimer);
             clearTimeout(closeTimer);
         };
-    }, []);
+    }, [handleClose]);
 
-    const handleClose = () => {
-        setIsVisible(false);
-        setTimeout(() => onClose(), 300);
-    };
-
-    const getStyles = () => {
+    // Optimización: Estilos memoizados basados en prioridad
+    const styles = useMemo(() => {
         switch (notification.priority) {
             case 'urgent':
                 return {
@@ -71,9 +83,7 @@ export default function NotificationToast({ notification, onClose }) {
                     progressBg: 'bg-gray-500',
                 };
         }
-    };
-
-    const styles = getStyles();
+    }, [notification.priority]);
 
     return (
         <div
@@ -97,11 +107,9 @@ export default function NotificationToast({ notification, onClose }) {
                             </p>
                             {notification.action_url && (
                                 <button
-                                    className={`text-xs ${styles.textColor} hover:underline font-semibold mt-2 inline-flex items-center gap-1`}
-                                    onClick={() => {
-                                        window.location.href = notification.action_url;
-                                        handleClose();
-                                    }}
+                                    className={`text-xs ${styles.textColor} hover:underline font-semibold mt-2 inline-flex items-center gap-1 transition-colors`}
+                                    onClick={handleActionClick}
+                                    aria-label="Ver detalles de la notificación"
                                 >
                                     Ver detalles
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +121,8 @@ export default function NotificationToast({ notification, onClose }) {
 
                         <button
                             onClick={handleClose}
-                            className="flex-shrink-0 text-gray-500 hover:text-gray-700 transition rounded-lg p-1 hover:bg-white/50"
+                            className="flex-shrink-0 text-gray-500 hover:text-gray-700 transition-colors rounded-lg p-1 hover:bg-white/50"
+                            aria-label="Cerrar notificación"
                         >
                             <X className="w-4 h-4" />
                         </button>

@@ -1,22 +1,82 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Componente memoizado para cada item de notificación (optimización de rendimiento)
+const NotificationItem = memo(({ notification, onClick, onClear, getIcon, getColor }) => {
+  return (
+    <div
+      onClick={() => onClick(notification)}
+      className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+        !notification.read ? 'bg-blue-50' : ''
+      }`}
+    >
+      <div className="flex gap-3">
+        {/* Icon */}
+        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 ${getColor(notification.priority)}`}>
+          {getIcon(notification.type)}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+              {notification.title}
+            </p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear(notification.id);
+              }}
+              className="flex-shrink-0 text-gray-400 hover:text-red-600 transition-colors"
+              aria-label="Eliminar notificación"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-1">
+            {notification.message}
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            {formatDistanceToNow(new Date(notification.created_at), {
+              addSuffix: true,
+              locale: es,
+            })}
+          </p>
+        </div>
+
+        {/* Unread indicator */}
+        {!notification.read && (
+          <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2" />
+        )}
+      </div>
+    </div>
+  );
+});
+
+NotificationItem.displayName = 'NotificationItem';
 
 const NotificationBell = () => {
   const { notifications, unreadCount, isConnected, markAsRead, markAllAsRead, clearNotification } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all'); // all, unread, read
 
-  const filteredNotifications = notifications.filter(n => {
-    if (filter === 'unread') return !n.read;
-    if (filter === 'read') return n.read;
-    return true;
-  });
+  // Optimización: Filtrado de notificaciones memoizado
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      if (filter === 'unread') return !n.read;
+      if (filter === 'read') return n.read;
+      return true;
+    });
+  }, [notifications, filter]);
 
-  const getNotificationIcon = (type) => {
+  // Optimización: Funciones memoizadas con useCallback
+  const getNotificationIcon = useCallback((type) => {
     const icons = {
       'order': '🛒',
       'payment': '💳',
@@ -24,31 +84,62 @@ const NotificationBell = () => {
       'user': '👤',
       'system': '⚙️',
       'coupon': '🎫',
+      'new_order': '🛍️',
+      'order_status': '📋',
+      'payment_confirmed': '✅',
+      'payment_failed': '❌',
+      'low_stock': '⚠️',
+      'out_of_stock': '🚫',
+      'new_user': '👋',
+      'new_review': '⭐',
+      'promotion': '🎉',
     };
     return icons[type] || '🔔';
-  };
+  }, []);
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = useCallback((priority) => {
     const colors = {
-      'high': 'bg-red-100 border-red-300',
+      'urgent': 'bg-red-100 border-red-300',
+      'high': 'bg-orange-100 border-orange-300',
       'medium': 'bg-yellow-100 border-yellow-300',
       'low': 'bg-blue-100 border-blue-300',
     };
     return colors[priority] || 'bg-gray-100 border-gray-300';
-  };
+  }, []);
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = useCallback((notification) => {
     if (!notification.read) {
       markAsRead(notification.id);
     }
-  };
+  }, [markAsRead]);
+
+  // Optimización: Toggle panel memoizado
+  const togglePanel = useCallback(() => {
+    setIsOpen(prev => !prev);
+  }, []);
+
+  // Optimización: Close panel memoizado
+  const closePanel = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  // Optimización: Change filter memoizado
+  const changeFilter = useCallback((newFilter) => {
+    setFilter(newFilter);
+  }, []);
+
+  // Optimización: Calcular conteo de leídas
+  const readCount = useMemo(() => {
+    return notifications.length - unreadCount;
+  }, [notifications.length, unreadCount]);
 
   return (
     <div className="relative">
       {/* Bell Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={togglePanel}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+        aria-label="Notificaciones"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -82,7 +173,7 @@ const NotificationBell = () => {
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
+            onClick={closePanel}
           />
 
           {/* Panel */}
@@ -94,8 +185,9 @@ const NotificationBell = () => {
                   Notificaciones
                 </h3>
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={closePanel}
                   className="text-gray-400 hover:text-gray-600"
+                  aria-label="Cerrar panel"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -106,8 +198,8 @@ const NotificationBell = () => {
               {/* Filters */}
               <div className="flex gap-2 mb-3">
                 <button
-                  onClick={() => setFilter('all')}
-                  className={`px-3 py-1 text-sm rounded-full ${
+                  onClick={() => changeFilter('all')}
+                  className={`px-3 py-1 text-sm rounded-full transition-colors ${
                     filter === 'all'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -116,8 +208,8 @@ const NotificationBell = () => {
                   Todas ({notifications.length})
                 </button>
                 <button
-                  onClick={() => setFilter('unread')}
-                  className={`px-3 py-1 text-sm rounded-full ${
+                  onClick={() => changeFilter('unread')}
+                  className={`px-3 py-1 text-sm rounded-full transition-colors ${
                     filter === 'unread'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -126,14 +218,14 @@ const NotificationBell = () => {
                   No leídas ({unreadCount})
                 </button>
                 <button
-                  onClick={() => setFilter('read')}
-                  className={`px-3 py-1 text-sm rounded-full ${
+                  onClick={() => changeFilter('read')}
+                  className={`px-3 py-1 text-sm rounded-full transition-colors ${
                     filter === 'read'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  Leídas ({notifications.length - unreadCount})
+                  Leídas ({readCount})
                 </button>
               </div>
 
@@ -170,54 +262,14 @@ const NotificationBell = () => {
                 </div>
               ) : (
                 filteredNotifications.map((notification) => (
-                  <div
+                  <NotificationItem
                     key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex gap-3">
-                      {/* Icon */}
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl ${getPriorityColor(notification.priority)}`}>
-                        {getNotificationIcon(notification.type)}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-                            {notification.title}
-                          </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              clearNotification(notification.id);
-                            }}
-                            className="flex-shrink-0 text-gray-400 hover:text-red-600"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {formatDistanceToNow(new Date(notification.created_at), {
-                            addSuffix: true,
-                            locale: es,
-                          })}
-                        </p>
-                      </div>
-
-                      {/* Unread indicator */}
-                      {!notification.read && (
-                        <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2" />
-                      )}
-                    </div>
-                  </div>
+                    notification={notification}
+                    onClick={handleNotificationClick}
+                    onClear={clearNotification}
+                    getIcon={getNotificationIcon}
+                    getColor={getPriorityColor}
+                  />
                 ))
               )}
             </div>
@@ -226,13 +278,10 @@ const NotificationBell = () => {
             {notifications.length > 0 && (
               <div className="p-3 border-t border-gray-200 bg-gray-50">
                 <button
-                  className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  onClick={() => {
-                    setIsOpen(false);
-                    // Aquí puedes redirigir a una página de notificaciones completa
-                  }}
+                  className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  onClick={closePanel}
                 >
-                  Ver todas las notificaciones
+                  Cerrar
                 </button>
               </div>
             )}

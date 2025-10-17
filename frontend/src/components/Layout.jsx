@@ -5,6 +5,7 @@ import { ShoppingCart, User, Menu, X, Search, LogOut } from 'lucide-react';
 import useAuthStore from '@/store/authStore';
 import useCartStore from '@/store/cartStore';
 import ThemeToggle from '@/components/ThemeToggle';
+import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function Layout({ children }) {
     const router = useRouter();
@@ -74,6 +75,9 @@ export default function Layout({ children }) {
                             <Link href="/categorias" className="text-gray-700 hover:text-purple-600 transition">
                                 Categorías
                             </Link>
+
+                            {/* Notifications - Only for authenticated users */}
+                            {isAuthenticated && <NotificationBell />}
 
                             {/* Cart */}
                             <Link href="/carrito" className="relative">

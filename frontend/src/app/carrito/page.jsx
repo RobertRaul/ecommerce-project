@@ -8,6 +8,7 @@ import { ShoppingCart, Trash2, Plus, Minus, ArrowRight, ShoppingBag, AlertTriang
 import Layout from '@/components/Layout';
 import useCartStore from '@/store/cartStore';
 import useAuthStore from '@/store/authStore';
+import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function CartPage() {
@@ -18,12 +19,25 @@ export default function CartPage() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showClearModal, setShowClearModal] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [paymentMethods, setPaymentMethods] = useState([]);
 
     useEffect(() => {
         if (isAuthenticated) {
             fetchCart();
         }
     }, [isAuthenticated, fetchCart]);
+
+    useEffect(() => {
+        const fetchPaymentMethods = async () => {
+            try {
+                const response = await api.get('/payment-methods/');
+                setPaymentMethods(response.data);
+            } catch (error) {
+                console.error('Error al cargar métodos de pago:', error);
+            }
+        };
+        fetchPaymentMethods();
+    }, []);
 
     const handleUpdateQuantity = async (itemId, newQuantity) => {
         if (newQuantity < 1) return;
@@ -335,18 +349,28 @@ export default function CartPage() {
                                     Métodos de pago aceptados:
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
-                                        Yape
-                                    </div>
-                                    <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
-                                        Plin
-                                    </div>
-                                    <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
-                                        Transferencia
-                                    </div>
-                                    <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
-                                        Tarjeta
-                                    </div>
+                                    {paymentMethods.length > 0 ? (
+                                        paymentMethods.map((method) => (
+                                            <div key={method.value} className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
+                                                {method.label}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
+                                                Yape
+                                            </div>
+                                            <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
+                                                Plin
+                                            </div>
+                                            <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
+                                                Transferencia
+                                            </div>
+                                            <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium text-gray-700">
+                                                Tarjeta
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
