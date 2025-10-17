@@ -12,6 +12,7 @@ import os
 import sys
 import django
 import random
+import uuid
 from datetime import timedelta, datetime
 from decimal import Decimal
 
@@ -173,14 +174,10 @@ def create_products(categories, brands):
         price = random_price(50, 8000)
         has_discount = random.random() < 0.3  # 30% con descuento
 
-        # Generar nombre y slug únicos
-        product_name = f"{brand.name} {template} {fake.word().title()}"
-        product_slug = f"{brand.name.lower().replace(' ', '-')}-{template.lower().replace(' ', '-')}-{i}"
-
         product = Product(
-            name=product_name,
-            slug=product_slug,
+            name=f"{brand.name} {template} {fake.word().title()}",
             sku=f"SKU-{fake.unique.bothify(text='????-########')}",
+            slug=f"{brand.name.lower().replace(' ', '-')}-{template.lower().replace(' ', '-')}-{fake.unique.bothify(text='????-####')}",
             description=fake.paragraph(nb_sentences=5),
             short_description=fake.sentence(),
             category=category,
@@ -217,17 +214,6 @@ def create_users():
 
     users = []
     profiles = []
-
-    # Crear superusuario robert si no existe
-    if not User.objects.filter(username='robert').exists():
-        robert = User.objects.create_superuser(
-            username='robert',
-            email='admin@gmail.com',
-            password='robert',
-            first_name='Robert',
-            last_name='Admin'
-        )
-        print("  [OK] Superusuario robert creado (robert / robert)")
 
     # Crear admin si no existe
     if not User.objects.filter(email='admin@ecommerce.com').exists():
@@ -297,9 +283,6 @@ def create_orders(users, products):
     order_items = []
     status_histories = []
 
-    # Importar uuid para generar order_number
-    import uuid
-
     for i in range(CONFIG['orders']):
         user = random.choice(users)
         status = random.choices(statuses, weights=status_weights)[0]
@@ -308,7 +291,7 @@ def create_orders(users, products):
         num_items = random.randint(1, 5)
         subtotal = Decimal('0')
 
-        # Generar order_number único
+        # Generar order_number único manualmente
         order_number = f"ORD-{uuid.uuid4().hex[:8].upper()}"
 
         order = Order(
@@ -418,12 +401,23 @@ def create_coupons(products, categories):
     print(f"[->] Creando {CONFIG['coupons']} cupones...")
 
     coupons = []
+    used_codes = set()
 
     coupon_prefixes = ['SAVE', 'DISCOUNT', 'PROMO', 'SALE', 'DEAL', 'OFFER']
 
     for i in range(CONFIG['coupons']):
-        # Generar código único con índice
-        code = f"{random.choice(coupon_prefixes)}{random.randint(10, 99)}-{i}"
+        # Generar código único
+        max_attempts = 100
+        for _ in range(max_attempts):
+            code = f"{random.choice(coupon_prefixes)}{random.randint(10, 99)}{fake.unique.bothify(text='??##')}"
+            if code not in used_codes:
+                used_codes.add(code)
+                break
+        else:
+            # Si no se pudo generar único, usar UUID
+            code = f"COUPON-{uuid.uuid4().hex[:8].upper()}"
+            used_codes.add(code)
+
         discount_type = random.choice(['percentage', 'fixed'])
 
         if discount_type == 'percentage':
@@ -538,47 +532,11 @@ def create_shipping_zones():
 
 # ==================== MAIN ====================
 
-def clean_database():
-    """Limpiar base de datos antes de poblar"""
-    print("[LIMPIEZA] Limpiando base de datos existente...")
-
-    try:
-        # Eliminar datos en orden inverso de dependencias
-        from django.core.management import call_command
-
-        # Verificar si hay datos
-        total_existing = (
-            User.objects.count() +
-            Category.objects.count() +
-            Brand.objects.count() +
-            Product.objects.count() +
-            Order.objects.count()
-        )
-
-        if total_existing > 0:
-            print(f"[INFO] Se encontraron {total_existing} registros existentes")
-            print("[->] Eliminando datos...")
-
-            # Flush database (mantiene estructura, elimina datos)
-            call_command('flush', '--no-input', verbosity=0)
-
-            print("[OK] Base de datos limpiada exitosamente\n")
-        else:
-            print("[INFO] Base de datos ya está vacía\n")
-
-    except Exception as e:
-        print(f"[WARN] No se pudo limpiar la base de datos: {str(e)}")
-        print("[INFO] Continuando de todas formas...\n")
-
-
 def main():
     """Función principal"""
     start_time = datetime.now()
 
     try:
-        # Limpiar base de datos antes de poblar
-        clean_database()
-
         # Crear datos en orden correcto (respetando dependencias)
         categories = create_categories()
         brands = create_brands()

@@ -106,12 +106,14 @@ try:
                     user=admin,
                     notification_type=NotificationType.COUPON_USED,
                     title=f"Cupón Usado: {instance.coupon.code}",
-                    message=f"El usuario {instance.user.username} ha usado el cupón {instance.coupon.code}",
+                    message=f"El usuario {instance.user.username} ha usado el cupón {instance.coupon.code} con descuento de S/ {instance.discount_amount}",
                     priority=NotificationPriority.LOW,
                     metadata={
                         'coupon_code': instance.coupon.code,
                         'user': instance.user.username,
-                        'discount': str(instance.coupon.discount)
+                        'discount_amount': str(instance.discount_amount),
+                        'discount_type': instance.coupon.discount_type,
+                        'discount_value': str(instance.coupon.discount_value)
                     }
                 )
 except ImportError:

@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from products.views import CategoryViewSet, BrandViewSet, ProductViewSet, ReviewViewSet
-from orders.views import CartViewSet, OrderViewSet, ShippingZoneViewSet, calculate_shipping
+from orders.views import CartViewSet, OrderViewSet, ShippingZoneViewSet, PaymentMethodViewSet, calculate_shipping, payment_methods_list
 from users.views import LoginView
 from permissions.views import RoleViewSet, PermissionViewSet, UserRoleViewSet, PermissionLogViewSet
 from coupons.views import CouponViewSet, CouponUsageViewSet
@@ -22,6 +22,7 @@ router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'shipping-zones', ShippingZoneViewSet, basename='shipping-zone')
+router.register(r'payment-methods', PaymentMethodViewSet, basename='payment-method')
 
 # Permissions
 router.register(r'roles', RoleViewSet, basename='role')
@@ -54,6 +55,9 @@ urlpatterns = [
     
     # Shipping
     path('api/calculate-shipping/', calculate_shipping, name='calculate-shipping'),
+
+    # Payment Methods
+    path('api/payment-methods/', payment_methods_list, name='payment-methods'),
 
     # tus urls...
     path("mcp/", include('mcp_server.urls')),

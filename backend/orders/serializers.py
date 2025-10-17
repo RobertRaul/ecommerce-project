@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem, ShippingZone
+from .models import Cart, CartItem, Order, OrderItem, ShippingZone, PaymentMethod
 from products.models import Product, ProductVariant
 from products.serializers import ProductListSerializer
 
@@ -166,10 +166,41 @@ class ShippingZoneSerializer(serializers.ModelSerializer):
         required=False,
         default=list
     )
-    
+
     class Meta:
         model = ShippingZone
         fields = [
             'id', 'name', 'departments', 'cost',
             'free_shipping_threshold', 'estimated_days', 'is_active'
         ]
+
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    """Serializer para métodos de pago"""
+
+    class Meta:
+        model = PaymentMethod
+        fields = [
+            'id', 'name', 'code', 'description', 'is_enabled',
+            'requires_proof', 'icon', 'display_order',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate_code(self, value):
+        """Validar que el código sea alfanumérico y en minúsculas"""
+        if not value.replace('_', '').isalnum():
+            raise serializers.ValidationError(
+                "El código debe contener solo letras, números y guiones bajos"
+            )
+        return value.lower()
+
+
+class PaymentMethodListSerializer(serializers.ModelSerializer):
+    """Serializer simplificado para listar métodos de pago habilitados"""
+    value = serializers.CharField(source='code', read_only=True)
+    label = serializers.CharField(source='name', read_only=True)
+
+    class Meta:
+        model = PaymentMethod
+        fields = ['value', 'label', 'description', 'icon', 'requires_proof']

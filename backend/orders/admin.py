@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.db.models import Sum
-from .models import Cart, CartItem, Order, OrderItem, ShippingZone, OrderStatusHistory
+from .models import Cart, CartItem, Order, OrderItem, ShippingZone, OrderStatusHistory, PaymentMethod
 
 
 @admin.register(Cart)
@@ -318,3 +318,36 @@ class OrderStatusHistoryAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PaymentMethod)
+class PaymentMethodAdmin(admin.ModelAdmin):
+    list_display = [
+        'name', 'code', 'enabled_badge', 'requires_proof_badge',
+        'display_order', 'created_at'
+    ]
+    list_filter = ['is_enabled', 'requires_proof', 'created_at']
+    search_fields = ['name', 'code', 'description']
+    ordering = ['display_order', 'name']
+
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('name', 'code', 'description', 'icon')
+        }),
+        ('Configuración', {
+            'fields': ('is_enabled', 'requires_proof', 'display_order')
+        }),
+        ('Fechas', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    readonly_fields = ['created_at', 'updated_at']
+
+    @admin.display(description='Habilitado', boolean=True)
+    def enabled_badge(self, obj):
+        return obj.is_enabled
+
+    @admin.display(description='Requiere Comprobante', boolean=True)
+    def requires_proof_badge(self, obj):
+        return obj.requires_proof

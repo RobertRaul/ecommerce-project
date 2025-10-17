@@ -6,7 +6,13 @@
       "Bash(python manage.py test_notifications:*)",
       "Bash(cat:*)",
       "Bash(del NotificationContext.js)",
-      "Bash(del NotificationContext.jsx)"
+      "Bash(del NotificationContext.jsx)",
+      "Bash(python create_superuser.py:*)",
+      "Bash(python populate_db.py:*)",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

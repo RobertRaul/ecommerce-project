@@ -5,12 +5,13 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.utils import timezone  # Añadir este import
-from .models import Cart, CartItem, Order, OrderItem, ShippingZone
+from .models import Cart, CartItem, Order, OrderItem, ShippingZone, PaymentMethod
 from coupons.models import Coupon, CouponUsage
 from products.models import Product, ProductVariant
 from .serializers import (
     CartSerializer, AddToCartSerializer,
-    OrderSerializer, CreateOrderSerializer, ShippingZoneSerializer
+    OrderSerializer, CreateOrderSerializer, ShippingZoneSerializer,
+    PaymentMethodSerializer, PaymentMethodListSerializer
 )
 
 
@@ -423,3 +424,42 @@ def calculate_shipping(request):
         'free_shipping_threshold': float(
             shipping_zone.free_shipping_threshold) if shipping_zone.free_shipping_threshold else None
     })
+
+
+class PaymentMethodViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión completa de métodos de pago
+    GET /api/payment-methods/ - Listar métodos habilitados (público)
+    POST /api/payment-methods/ - Crear método (solo admin)
+    GET /api/payment-methods/{id}/ - Detalle de método
+    PATCH /api/payment-methods/{id}/ - Actualizar método (solo admin)
+    DELETE /api/payment-methods/{id}/ - Eliminar método (solo admin)
+    """
+    queryset = PaymentMethod.objects.all()
+
+    def get_serializer_class(self):
+        """Usar serializer simplificado para listado público"""
+        if self.action == 'list' and not self.request.user.is_staff:
+            return PaymentMethodListSerializer
+        return PaymentMethodSerializer
+
+    def get_queryset(self):
+        """Usuarios regulares solo ven métodos habilitados, admins ven todos"""
+        if self.request.user.is_staff:
+            return PaymentMethod.objects.all()
+        return PaymentMethod.objects.filter(is_enabled=True)
+
+    def get_permissions(self):
+        """Permitir GET público, resto solo admin"""
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]
+        return [IsAdminUser()]
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def payment_methods_list(request):
+    """Listar métodos de pago disponibles (deprecated, usar ViewSet)"""
+    payment_methods = PaymentMethod.objects.filter(is_enabled=True)
+    serializer = PaymentMethodListSerializer(payment_methods, many=True)
+    return Response(serializer.data)

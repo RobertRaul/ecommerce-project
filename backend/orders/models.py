@@ -253,3 +253,26 @@ class ShippingZone(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PaymentMethod(models.Model):
+    """Métodos de pago configurables"""
+
+    name = models.CharField('Nombre', max_length=100, unique=True)
+    code = models.CharField('Código', max_length=50, unique=True)  # yape, plin, transfer, card, cash
+    description = models.TextField('Descripción', blank=True)
+    is_enabled = models.BooleanField('Habilitado', default=True)
+    requires_proof = models.BooleanField('Requiere comprobante', default=False)  # Para yape, plin, transfer
+    icon = models.CharField('Icono', max_length=100, blank=True)  # Nombre del icono o emoji
+    display_order = models.IntegerField('Orden de visualización', default=0)
+
+    created_at = models.DateTimeField('Creado', auto_now_add=True)
+    updated_at = models.DateTimeField('Actualizado', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Método de Pago'
+        verbose_name_plural = 'Métodos de Pago'
+        ordering = ['display_order', 'name']
+
+    def __str__(self):
+        return self.name

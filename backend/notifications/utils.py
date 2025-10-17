@@ -60,6 +60,7 @@ def send_notification(
             'priority_color': notification.priority_color,
             'action_url': notification.action_url,
             'created_at': notification.created_at.isoformat(),
+            'read': notification.read,
             'metadata': notification.metadata
         }
         
@@ -122,34 +123,38 @@ def notify_new_order(order):
     """Notificar nueva orden"""
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    
+
     # Notificar a todos los admins
     admins = User.objects.filter(is_staff=True)
     for admin in admins:
         send_notification(
             user=admin,
             notification_type=NotificationType.NEW_ORDER,
-            title=f"Nueva Orden #{order.id}",
-            message=f"Se ha recibido una nueva orden de {order.user.get_full_name() or order.user.username} por ${order.total_amount}",
+            title=f"Nueva Orden #{order.order_number}",
+            message=f"Se ha recibido una nueva orden de {order.user.get_full_name() or order.user.username} por S/ {order.total}",
             priority=NotificationPriority.HIGH,
-            action_url=f"/admin/ordenes/{order.id}",
+            action_url=f"/admin/ordenes/{order.order_number}",
             order_id=order.id,
             metadata={
+                'order_number': order.order_number,
                 'customer_name': order.user.get_full_name() or order.user.username,
-                'total_amount': str(order.total_amount),
+                'total_amount': str(order.total),
                 'items_count': order.items.count()
             }
         )
-    
+
     # Notificar al cliente
     send_notification(
         user=order.user,
         notification_type=NotificationType.NEW_ORDER,
         title="Orden Confirmada",
-        message=f"Tu orden #{order.id} ha sido recibida y está siendo procesada",
+        message=f"Tu orden #{order.order_number} ha sido recibida y está siendo procesada",
         priority=NotificationPriority.MEDIUM,
-        action_url=f"/mis-ordenes/{order.id}",
-        order_id=order.id
+        action_url=f"/ordenes/{order.order_number}",
+        order_id=order.id,
+        metadata={
+            'order_number': order.order_number
+        }
     )
 
 
@@ -161,21 +166,22 @@ def notify_order_status_change(order, old_status):
         'delivered': 'Tu orden ha sido entregada',
         'cancelled': 'Tu orden ha sido cancelada'
     }
-    
+
     message = status_messages.get(
-        order.status, 
+        order.status,
         f'El estado de tu orden ha cambiado a {order.get_status_display()}'
     )
-    
+
     send_notification(
         user=order.user,
         notification_type=NotificationType.ORDER_STATUS,
-        title=f"Actualización de Orden #{order.id}",
+        title=f"Actualización de Orden #{order.order_number}",
         message=message,
         priority=NotificationPriority.MEDIUM,
-        action_url=f"/mis-ordenes/{order.id}",
+        action_url=f"/ordenes/{order.order_number}",
         order_id=order.id,
         metadata={
+            'order_number': order.order_number,
             'old_status': old_status,
             'new_status': order.status
         }
@@ -189,12 +195,15 @@ def notify_payment_status(order, status):
             user=order.user,
             notification_type=NotificationType.PAYMENT_CONFIRMED,
             title="Pago Confirmado",
-            message=f"El pago de tu orden #{order.id} ha sido confirmado",
+            message=f"El pago de tu orden #{order.order_number} ha sido confirmado",
             priority=NotificationPriority.MEDIUM,
-            action_url=f"/mis-ordenes/{order.id}",
-            order_id=order.id
+            action_url=f"/ordenes/{order.order_number}",
+            order_id=order.id,
+            metadata={
+                'order_number': order.order_number
+            }
         )
-        
+
         # Notificar a admins
         from django.contrib.auth import get_user_model
         User = get_user_model()
@@ -203,21 +212,27 @@ def notify_payment_status(order, status):
             send_notification(
                 user=admin,
                 notification_type=NotificationType.PAYMENT_CONFIRMED,
-                title=f"Pago Confirmado - Orden #{order.id}",
-                message=f"Se ha confirmado el pago de ${order.total_amount} para la orden #{order.id}",
+                title=f"Pago Confirmado - Orden #{order.order_number}",
+                message=f"Se ha confirmado el pago de S/ {order.total} para la orden #{order.order_number}",
                 priority=NotificationPriority.HIGH,
-                action_url=f"/admin/ordenes/{order.id}",
-                order_id=order.id
+                action_url=f"/admin/ordenes/{order.order_number}",
+                order_id=order.id,
+                metadata={
+                    'order_number': order.order_number
+                }
             )
     else:
         send_notification(
             user=order.user,
             notification_type=NotificationType.PAYMENT_FAILED,
             title="Error en el Pago",
-            message=f"Hubo un problema procesando el pago de tu orden #{order.id}",
+            message=f"Hubo un problema procesando el pago de tu orden #{order.order_number}",
             priority=NotificationPriority.HIGH,
-            action_url=f"/mis-ordenes/{order.id}",
-            order_id=order.id
+            action_url=f"/ordenes/{order.order_number}",
+            order_id=order.id,
+            metadata={
+                'order_number': order.order_number
+            }
         )
 
 
